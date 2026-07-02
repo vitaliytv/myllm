@@ -7,7 +7,7 @@
   ],
   "type": "module",
   "scripts": {
-    "start": "bun --cwd=app run tauri dev",
+    "start": "bun --cwd=app run tauri dev --config src-tauri/tauri.conf.dev.json",
     "tauri": "bun --cwd=app run tauri",
     "lint": "bun run lint-js && bun run lint-text && bun run lint-style && bun run lint-ga && bun run lint-rust && bun run lint-image && bun run lint-security && oxfmt .",
     "lint-rust": "cargo fmt --all && cargo clippy --fix --allow-staged --allow-dirty --all-targets --all-features && cargo clippy --all-targets --all-features -- -D warnings",
