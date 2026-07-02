@@ -29,6 +29,17 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_mcp_bridge::init());
 
     builder
+        .setup(|app| {
+            // Версія застосунку в заголовку вікна, щоб її було видно без About-діалогу
+            #[cfg(desktop)]
+            if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
+                let _ = window.set_title(&format!(
+                    "myllm — omlx queue v{}",
+                    app.package_info().version
+                ));
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

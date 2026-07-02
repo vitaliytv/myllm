@@ -2,7 +2,10 @@
   <q-layout view="hHh lpR fFf">
     <q-header elevated>
       <q-toolbar>
-        <q-toolbar-title>myllm — omlx queue</q-toolbar-title>
+        <q-toolbar-title>
+          myllm — omlx queue
+          <span v-if="appVersion" class="text-caption text-blue-2">v{{ appVersion }}</span>
+        </q-toolbar-title>
         <q-badge v-if="proxy.running.value" color="positive" class="q-mr-md">
           proxy :{{ proxy.port.value }}
         </q-badge>
@@ -169,6 +172,7 @@
 </template>
 
 <script setup>
+import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { Dialog } from 'quasar'
@@ -190,6 +194,7 @@ const history = useRequestHistory()
 
 const connection = ref(loadConnection(localStorage))
 const expandedEntries = ref({})
+const appVersion = ref('')
 
 /**
  * Логінить admin-сесію і піднімає локальний проксі.
@@ -207,6 +212,7 @@ async function connectAndStartProxy() {
 // OMLX_API_KEY з env процесу (є при запуску з shell; з Finder — ні),
 // і якщо ключ є з будь-якого джерела, конектимось без кліку.
 onMounted(async () => {
+  appVersion.value = await getVersion()
   if (!connection.value.apiKey) {
     const envKey = await invoke('omlx_env_api_key')
     if (envKey) connection.value = { ...connection.value, apiKey: envKey }
