@@ -167,6 +167,22 @@ pub async fn proxy_history(
     Ok(read_tail_entries(&log_path, limit).await?)
 }
 
+#[tauri::command]
+pub async fn proxy_clear_history(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ProxyError::AppData(e.to_string()))?;
+    let log_path = data_dir.join("requests.jsonl");
+    match tokio::fs::remove_file(&log_path).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(ProxyError::from(e).into()),
+    }
+}
+
 async fn read_tail_entries(log_path: &PathBuf, limit: usize) -> Result<Vec<Value>, ProxyError> {
     let content = match tokio::fs::read_to_string(log_path).await {
         Ok(c) => c,
@@ -418,6 +434,17 @@ mod tests {
     fn falls_back_to_raw_for_unknown_shape() {
         let raw = b"not json at all";
         assert_eq!(extract_response_text("text/plain", raw), "not json at all");
+    }
+
+    #[tokio::test]
+    async fn read_tail_entries_returns_empty_after_file_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("requests.jsonl");
+        tokio::fs::write(&path, "{\"id\":0}\n").await.unwrap();
+        tokio::fs::remove_file(&path).await.unwrap();
+
+        let entries = read_tail_entries(&path, 10).await.unwrap();
+        assert!(entries.is_empty());
     }
 
     #[tokio::test]

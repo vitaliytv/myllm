@@ -123,7 +123,18 @@
             </q-card>
           </div>
 
-          <div class="text-subtitle1 q-mt-md">Історія запитів</div>
+          <div class="row items-center q-mt-md q-gutter-sm">
+            <div class="text-subtitle1">Історія запитів</div>
+            <q-btn
+              v-if="history.entries.value.length"
+              @click="clearHistory"
+              flat
+              dense
+              no-caps
+              color="negative"
+              icon="sym_o_delete_sweep"
+              label="Очистити" />
+          </div>
           <q-card v-if="!history.entries.value.length" flat bordered>
             <q-card-section class="text-grey-7">
               Ще немає жодного запиту через проксі. Направ клієнта на
@@ -160,6 +171,7 @@
 <script setup>
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
+import { Dialog } from 'quasar'
 import { useAgent } from './composables/use-agent.js'
 import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { useProxy } from './composables/use-proxy.js'
@@ -226,6 +238,16 @@ function toggleEntry(id) {
  */
 function formatTime(ms) {
   return new Date(ms).toLocaleTimeString()
+}
+
+/** Очищає історію запитів після підтвердження користувачем. */
+function clearHistory() {
+  Dialog.create({
+    title: 'Очистити історію запитів',
+    message: 'Усі збережені запити та відповіді буде видалено безповоротно.',
+    cancel: true,
+    persistent: true,
+  }).onOk(() => history.clear())
 }
 </script>
 

@@ -63,6 +63,10 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
       - name: Sync app version from tag
         run: |
           VER="${GITHUB_REF_NAME#v}"

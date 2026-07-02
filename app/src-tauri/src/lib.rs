@@ -15,7 +15,8 @@ pub fn run() {
             omlx::admin::omlx_global_settings,
             omlx::proxy::proxy_start,
             omlx::proxy::proxy_stop,
-            omlx::proxy::proxy_history
+            omlx::proxy::proxy_history,
+            omlx::proxy::proxy_clear_history
         ]);
 
     #[cfg(desktop)]
