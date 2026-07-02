@@ -1,0 +1,12 @@
+.vscode/extensions.json
+.vscode/settings.json
+.vscode/
+.cursor/hooks.json
+.gitleaks.toml
+.git/**
+app/src-tauri/target/
+app/src-tauri/gen/
+app/src-tauri/tauri.conf.json
+app/src-tauri/capabilities/
+docs/ci4/manifest.json
+.claude/settings.local.json

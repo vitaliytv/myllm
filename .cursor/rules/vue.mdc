@@ -1,0 +1,9 @@
+---
+description: Vue local
+globs: "**/*.vue"
+alwaysApply: false
+---
+
+#
+
+Використовуй Quasar для компонентів

@@ -1,0 +1,14 @@
+{
+  "gitignore": true,
+  "exitCode": 1,
+  "reporters": ["console"],
+  "minLines": 25,
+  "ignore": [
+    ".claude/worktrees/**",
+    "**/dist/**",
+    "**/CHANGELOG.md",
+    "**/src-tauri/target/**",
+    "**/src-tauri/gen/**",
+    "scripts/docs-regen/default-templates/**"
+  ]
+}

@@ -1,0 +1,54 @@
+[package]
+name = "myllm"
+version = "0.1.0"
+description = "omlx queue monitor and request proxy"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "myllm_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+# Shared agent journal + omlx config commands (plugin:agent|*) — same crate the
+# task/mlmail/myshare apps use, so the journal/omlx backend isn't copied per app.
+tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components" }
+# @7n/tauri-components' useAgent() робить свій chat-виклик до omlx через
+# tauriFetch (JS) — тому плагін потрібен, навіть хоча наш власний admin/proxy
+# код ходить у HTTP напряму через reqwest, а не через нього.
+tauri-plugin-http = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# admin-клієнт (login+stats) тримає cookie-сесію; proxy.rs стрімить тіло
+# відповіді без буферизації (важливо для SSE chat/completions).
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "stream", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }
+# Легкий embedded reverse-proxy сервер для /v1/* трафіку — окремий tokio-таск
+# поруч із Tauri event loop, щоб історія запитів бачила текст, а не лише лічильники.
+axum = "0.8"
+tokio-stream = "0.1"
+futures-util = "0.3"
+thiserror = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
+tauri-plugin-updater = "2"
+
+[dev-dependencies]
+mockito = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+
+# Стрипаємо debug-символи навіть у debug-збірці (той самий підхід, що в myshare).
+[profile.dev]
+strip = true

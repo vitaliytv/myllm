@@ -1,0 +1,24 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "github.vscode-github-actions",
+    "oxc.oxc-vscode",
+    "DavidAnson.vscode-markdownlint",
+    "timonwong.shellcheck",
+    "redhat.vscode-yaml",
+    "irongeek.vscode-env",
+    "stylelint.vscode-stylelint",
+    "Vue.volar",
+    "tauri-apps.tauri-vscode",
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "arr.marksman"
+  ],
+  "unwantedRecommendations": [
+    "orsenkucher.vscode-graphql",
+    "ms-azuretools.vscode-containers",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    "ms-azuretools.vscode-azure-github-copilot",
+    "apidev.azure-api-center"
+  ]
+}
