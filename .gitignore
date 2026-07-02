@@ -62,4 +62,4 @@ reports/stryker/incremental.json
 **/coverage/
 
 # Android APK артефакт (bun run android:apk)
-myshare.apk
+myllm.apk

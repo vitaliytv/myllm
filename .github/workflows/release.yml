@@ -38,7 +38,7 @@ jobs:
               release = (await github.rest.repos.createRelease({
                 ...params,
                 tag_name: tag,
-                name: `myshare ${tag}`,
+                name: `myllm ${tag}`,
                 draft: false,
                 prerelease: false,
                 generate_release_notes: true,
@@ -148,7 +148,7 @@ jobs:
           project-slug: 'vitaliytv-kfse'
           identity-id: '53691c96-17d9-4389-b078-0f77073809ab'
           env-slug: 'main'
-          secret-path: '/myshare'
+          secret-path: '/myllm'
 
       - name: Configure release signing
         run: |
@@ -172,5 +172,5 @@ jobs:
         run: |
           VER="${GITHUB_REF_NAME#v}"
           SRC=$(find app/src-tauri/gen/android/app/build/outputs/apk/universal/release -name '*.apk' | head -1)
-          cp "$SRC" "$RUNNER_TEMP/myshare_${VER}_universal.apk"
-          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/myshare_${VER}_universal.apk" --clobber
+          cp "$SRC" "$RUNNER_TEMP/myllm_${VER}_universal.apk"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/myllm_${VER}_universal.apk" --clobber
