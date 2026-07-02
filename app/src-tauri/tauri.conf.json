@@ -28,7 +28,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYyNkI2NkY4ODg4OTRDN0IKUldSN1RJbUkrR1pyWXJhOG01cVJzVWpUQ0hnbW9IVE9MUHVlNHo0N3g1THJMbnk1clpLVERxTCsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgNEY2MTg3ODJDQTU0Q0U2NgpSV1JtemxUS2dvZGhUMFJNRWIxeXVJcDM0MnJDTEkxQ0hHQXdMd3NoSGlzT3U2Nmw0UitaWGF0aAo=",
       "endpoints": ["https://github.com/vitaliytv/myllm/releases/latest/download/latest.json"]
     }
   }
