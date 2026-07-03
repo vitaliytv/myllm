@@ -8,9 +8,10 @@
 //! стрімить копію в лог — так стрімінг (SSE) не ламається для клієнта, а
 //! історія запитів наповнюється текстом у реальному часі.
 
+use super::client_info::{self, ClientInfo};
 use axum::{
     body::{Body, Bytes},
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{HeaderMap, HeaderName, Method, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::any,
@@ -20,6 +21,7 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
+    net::SocketAddr,
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -69,6 +71,10 @@ pub struct RequestLogEntry {
     pub request_headers: Value,
     pub request_body: Option<Value>,
     pub response_text: String,
+    /// Процес-клієнт (PID/назва/бінарник/cwd), зарезолвлений за портом
+    /// з'єднання. `None` — коли процес не знайшовся (встиг завершитись) або
+    /// платформа без підтримки резолву.
+    pub client: Option<ClientInfo>,
 }
 
 struct ProxyShared {
@@ -77,6 +83,9 @@ struct ProxyShared {
     log_path: PathBuf,
     app: tauri::AppHandle,
     next_id: AtomicU64,
+    /// Фактичний порт, на якому слухає проксі — потрібен для резолву
+    /// процесу-клієнта за парою портів TCP-з'єднання.
+    port: u16,
 }
 
 /// Хендл живого проксі-таска — зберігається у Tauri-стані, щоб `proxy_stop`
@@ -115,25 +124,33 @@ async fn start_inner(
     tokio::fs::create_dir_all(&data_dir).await?;
     let log_path = data_dir.join("requests.jsonl");
 
-    let shared = Arc::new(ProxyShared {
-        client: reqwest::Client::new(),
-        upstream_base_url,
-        log_path,
-        app,
-        next_id: AtomicU64::new(0),
-    });
-
-    let router = Router::new()
-        .fallback(any(proxy_handler))
-        .with_state(shared);
     let addr = format!("127.0.0.1:{port}");
     let listener = TcpListener::bind(&addr)
         .await
         .map_err(|e| ProxyError::Bind(addr, e))?;
     let actual_port = listener.local_addr()?.port();
 
+    let shared = Arc::new(ProxyShared {
+        client: reqwest::Client::new(),
+        upstream_base_url,
+        log_path,
+        app,
+        next_id: AtomicU64::new(0),
+        port: actual_port,
+    });
+
+    let router = Router::new()
+        .fallback(any(proxy_handler))
+        .with_state(shared);
+
     let handle = tokio::spawn(async move {
-        let _ = axum::serve(listener, router).await;
+        // with_connect_info дає хендлеру peer-адресу клієнта — з її порту
+        // резолвиться процес, який зробив запит.
+        let _ = axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await;
     });
 
     Ok((actual_port, handle))
@@ -224,12 +241,21 @@ fn redact_headers(headers: &HeaderMap) -> Value {
 
 async fn proxy_handler(
     State(shared): State<Arc<ProxyShared>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
     let started = Instant::now();
+    // Резолвимо процес-клієнт одразу (поки TCP-з'єднання ще відкрите і є в
+    // таблиці сокетів) у blocking-пулі паралельно з походом на upstream;
+    // результат забирається при фіналізації запису.
+    let client_task = tokio::task::spawn_blocking({
+        let client_port = peer.port();
+        let proxy_port = shared.port;
+        move || client_info::resolve(client_port, proxy_port)
+    });
     let path = uri
         .path_and_query()
         .map(|p| p.as_str().to_string())
@@ -296,6 +322,7 @@ async fn proxy_handler(
             }
         }
         let response_text = extract_response_text(&content_type, &captured);
+        let client = client_task.await.ok().flatten();
         let entry = RequestLogEntry {
             id: shared_for_task.next_id.fetch_add(1, Ordering::Relaxed),
             timestamp_ms: SystemTime::now()
@@ -310,6 +337,7 @@ async fn proxy_handler(
             request_headers,
             request_body: request_body_for_task,
             response_text,
+            client,
         };
         finalize_entry(&shared_for_task, entry).await;
     });

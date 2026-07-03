@@ -87,7 +87,9 @@ async fn get_json(session: &Session, path: &str) -> Result<Value, AdminError> {
 /// повертається None і UI чекає ручного вводу.
 #[tauri::command]
 pub fn omlx_env_api_key() -> Option<String> {
-    std::env::var("OMLX_API_KEY").ok().filter(|key| !key.is_empty())
+    std::env::var("OMLX_API_KEY")
+        .ok()
+        .filter(|key| !key.is_empty())
 }
 
 #[tauri::command]

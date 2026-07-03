@@ -156,7 +156,16 @@
                   </q-badge>
                   <span class="text-caption text-grey-6 q-ml-sm">{{ entry.durationMs }}ms</span>
                 </q-item-label>
+                <q-item-label v-if="entry.client" caption>
+                  <q-icon name="sym_o_terminal" size="14px" class="q-mr-xs" />
+                  <span class="text-weight-medium">{{ entry.client.name || entry.client.pid }}</span>
+                  <span v-if="entry.client.cwd" class="q-ml-sm">{{ entry.client.cwd }}</span>
+                </q-item-label>
                 <q-item-label v-if="expandedEntries[entry.id]" caption class="entry-body">
+                  <template v-if="entry.client">
+                    <div class="text-weight-medium q-mt-sm">Клієнт</div>
+                    <pre>{{ formatClient(entry.client) }}</pre>
+                  </template>
                   <div class="text-weight-medium q-mt-sm">Запит</div>
                   <pre>{{ JSON.stringify(entry.requestBody, null, 2) }}</pre>
                   <div class="text-weight-medium q-mt-sm">Відповідь</div>
@@ -244,6 +253,22 @@ function toggleEntry(id) {
  */
 function formatTime(ms) {
   return new Date(ms).toLocaleTimeString()
+}
+
+/**
+ * Багаторядковий опис процесу-клієнта для розгорнутих деталей запиту.
+ * @param {{pid: number, name?: string, exe?: string, cwd?: string}} client `RequestLogEntry.client`
+ * @returns {string} по рядку на відоме поле (pid, назва, бінарник, cwd)
+ */
+function formatClient(client) {
+  return [
+    `pid: ${client.pid}`,
+    client.name && `назва: ${client.name}`,
+    client.exe && `бінарник: ${client.exe}`,
+    client.cwd && `директорія: ${client.cwd}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /** Очищає історію запитів після підтвердження користувачем. */
