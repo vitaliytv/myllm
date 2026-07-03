@@ -166,9 +166,29 @@
                     <div class="text-weight-medium q-mt-sm">Клієнт</div>
                     <pre>{{ formatClient(entry.client) }}</pre>
                   </template>
-                  <div class="text-weight-medium q-mt-sm">Запит</div>
+                  <div class="row items-center q-mt-sm">
+                    <div class="text-weight-medium">Запит</div>
+                    <q-btn
+                      @click.stop="copyToClipboard(JSON.stringify(entry.requestBody, null, 2))"
+                      flat
+                      dense
+                      round
+                      size="sm"
+                      icon="sym_o_content_copy"
+                      class="q-ml-xs" />
+                  </div>
                   <pre>{{ JSON.stringify(entry.requestBody, null, 2) }}</pre>
-                  <div class="text-weight-medium q-mt-sm">Відповідь</div>
+                  <div class="row items-center q-mt-sm">
+                    <div class="text-weight-medium">Відповідь</div>
+                    <q-btn
+                      @click.stop="copyToClipboard(entry.responseText)"
+                      flat
+                      dense
+                      round
+                      size="sm"
+                      icon="sym_o_content_copy"
+                      class="q-ml-xs" />
+                  </div>
                   <pre>{{ entry.responseText }}</pre>
                 </q-item-label>
               </q-item-section>
@@ -184,7 +204,7 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
-import { Dialog } from 'quasar'
+import { Dialog, Notify } from 'quasar'
 import { useAgent } from './composables/use-agent.js'
 import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { useProxy } from './composables/use-proxy.js'
@@ -269,6 +289,16 @@ function formatClient(client) {
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+/**
+ * Копіює переданий текст у буфер обміну та показує підтвердження.
+ * @param {string} text текст для копіювання
+ * @returns {Promise<void>}
+ */
+async function copyToClipboard(text) {
+  await navigator.clipboard.writeText(text)
+  Notify.create({ message: 'Скопійовано до буфера обміну', color: 'positive', timeout: 1500 })
 }
 
 /** Очищає історію запитів після підтвердження користувачем. */

@@ -304,6 +304,9 @@ async fn proxy_handler(
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
     let shared_for_task = shared.clone();
     let request_body_for_task = request_body.clone();
+    // /health — це лише liveness-пінг клієнтів; логувати його в історію
+    // запитів не має сенсу, він тільки засмічує список реальними чат-запитами.
+    let should_log = path != "/health";
     tokio::spawn(async move {
         let mut stream = upstream_resp.bytes_stream();
         let mut captured: Vec<u8> = Vec::new();
@@ -320,6 +323,9 @@ async fn proxy_handler(
                     break;
                 }
             }
+        }
+        if !should_log {
+            return;
         }
         let response_text = extract_response_text(&content_type, &captured);
         let client = client_task.await.ok().flatten();
