@@ -8,6 +8,7 @@
     "opener:default",
     "agent:default",
     "updater:default",
+    "process:allow-restart",
     "mcp-bridge:default",
     {
       "identifier": "http:default",
