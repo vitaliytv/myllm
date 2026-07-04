@@ -9,6 +9,7 @@
 //! історія запитів наповнюється текстом у реальному часі.
 
 use super::client_info::{self, ClientInfo};
+use super::compress::compress_request_body;
 use axum::{
     body::{Body, Bytes},
     extract::{ConnectInfo, State},
@@ -75,6 +76,11 @@ pub struct RequestLogEntry {
     /// з'єднання. `None` — коли процес не знайшовся (встиг завершитись) або
     /// платформа без підтримки резолву.
     pub client: Option<ClientInfo>,
+    /// Чи стиснули `messages` перед форвардом на upstream (minify вбудованого
+    /// JSON + truncation старих великих блоків, див. `compress.rs`). `false`
+    /// також коли запит просто не підпадав під формат (tool-calls,
+    /// response_format, не chat-completions) — компресія свідомо пропущена.
+    pub prompt_compressed: bool,
 }
 
 struct ProxyShared {
@@ -270,13 +276,26 @@ async fn proxy_handler(
         .map(|s| s.to_string());
     let request_headers = redact_headers(&headers);
 
+    // Компресуємо тіло, що йде на upstream, окремо від `request_body`, який
+    // лишається оригіналом для логу історії — так видно і що прислав
+    // клієнт, і чи спрацювала компресія (`prompt_compressed`).
+    let original_size = body.len();
+    let (upstream_body, prompt_compressed) = match request_body
+        .as_ref()
+        .and_then(|v| compress_request_body(v, original_size))
+        .and_then(|compressed| serde_json::to_vec(&compressed).ok())
+    {
+        Some(bytes) => (Bytes::from(bytes), true),
+        None => (body.clone(), false),
+    };
+
     let mut upstream_req = shared.client.request(method.clone(), &url);
     for (name, value) in headers.iter() {
         if !is_hop_by_hop(name) {
             upstream_req = upstream_req.header(name, value);
         }
     }
-    let upstream_resp = match upstream_req.body(body).send().await {
+    let upstream_resp = match upstream_req.body(upstream_body).send().await {
         Ok(r) => r,
         Err(e) => {
             return (StatusCode::BAD_GATEWAY, format!("omlx upstream error: {e}")).into_response();
@@ -344,6 +363,7 @@ async fn proxy_handler(
             request_body: request_body_for_task,
             response_text,
             client,
+            prompt_compressed,
         };
         finalize_entry(&shared_for_task, entry).await;
     });

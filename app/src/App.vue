@@ -16,6 +16,7 @@
 
     <AgentDialog v-model="agentOpen" :agent="agent" prompt-hint="наприклад: чому черга не рухається?" />
     <AuditDialog v-model="auditOpen" :agent="agent" />
+    <PiSessionDialog v-model="piSessionOpen" :entry="piSessionEntry" :models="piAgent.models.value" />
 
     <q-page-container>
       <q-page class="q-pa-lg column q-gutter-md">
@@ -154,7 +155,7 @@
                   <q-badge :color="entry.status < 400 ? 'positive' : 'negative'" class="q-ml-sm">
                     {{ entry.status }}
                   </q-badge>
-                  <span class="text-caption text-grey-6 q-ml-sm">{{ entry.durationMs }}ms</span>
+                  <span class="text-caption text-grey-6 q-ml-sm">{{ formatDuration(entry.durationMs) }}</span>
                 </q-item-label>
                 <q-item-label v-if="entry.client" caption>
                   <q-icon name="sym_o_terminal" size="14px" class="q-mr-xs" />
@@ -192,6 +193,17 @@
                   <pre>{{ entry.responseText }}</pre>
                 </q-item-label>
               </q-item-section>
+              <q-item-section side top>
+                <q-btn
+                  @click.stop="openPiSession(entry)"
+                  :disable="!entry.client?.cwd || !piAgent.models.value.length"
+                  flat
+                  dense
+                  round
+                  size="sm"
+                  icon="sym_o_smart_toy"
+                  :title="piAgent.models.value.length ? 'Аналіз через pi' : 'Жодної N_*_MODEL env-змінної не задано'" />
+              </q-item-section>
             </q-item>
           </q-list>
         </template>
@@ -205,8 +217,10 @@ import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { Dialog, Notify } from 'quasar'
+import PiSessionDialog from './components/PiSessionDialog.vue'
 import { useAgent } from './composables/use-agent.js'
 import { useOmlxQueue } from './composables/use-omlx-queue.js'
+import { usePiAgent } from './composables/use-pi-agent.js'
 import { useProxy } from './composables/use-proxy.js'
 import { useRequestHistory } from './composables/use-request-history.js'
 import { useUpdater } from './composables/use-updater.js'
@@ -220,10 +234,13 @@ const auditOpen = ref(false)
 const queue = useOmlxQueue()
 const proxy = useProxy()
 const history = useRequestHistory()
+const piAgent = usePiAgent()
 
 const connection = ref(loadConnection(localStorage))
 const expandedEntries = ref({})
 const appVersion = ref('')
+const piSessionOpen = ref(false)
+const piSessionEntry = ref(null)
 
 /**
  * Логінить admin-сесію і піднімає локальний проксі.
@@ -247,6 +264,7 @@ onMounted(async () => {
     if (envKey) connection.value = { ...connection.value, apiKey: envKey }
   }
   if (connection.value.apiKey) await connectAndStartProxy()
+  await piAgent.loadModels()
 })
 
 /**
@@ -276,6 +294,14 @@ function formatTime(ms) {
 }
 
 /**
+ * @param {number} ms тривалість у мілісекундах
+ * @returns {string} тривалість у секундах, округлена до цілого
+ */
+function formatDuration(ms) {
+  return `${Math.round(ms / 1000)}s`
+}
+
+/**
  * Багаторядковий опис процесу-клієнта для розгорнутих деталей запиту.
  * @param {{pid: number, name?: string, exe?: string, cwd?: string}} client `RequestLogEntry.client`
  * @returns {string} по рядку на відоме поле (pid, назва, бінарник, cwd)
@@ -299,6 +325,19 @@ function formatClient(client) {
 async function copyToClipboard(text) {
   await navigator.clipboard.writeText(text)
   Notify.create({ message: 'Скопійовано до буфера обміну', color: 'positive', timeout: 1500 })
+}
+
+/**
+ * Відкриває pi-сесію аналізу для запису історії (pi отримує повний
+ * read/bash/edit/write доступ у cwd клієнта — без окремого підтвердження).
+ * Вибір моделі з `N_*_MODEL` env-змінних відбувається вже всередині діалогу.
+ * @param {object} entry `RequestLogEntry` зі списку історії
+ * @returns {void}
+ */
+function openPiSession(entry) {
+  if (!entry.client?.cwd || !piAgent.models.value.length) return
+  piSessionEntry.value = entry
+  piSessionOpen.value = true
 }
 
 /** Очищає історію запитів після підтвердження користувачем. */
