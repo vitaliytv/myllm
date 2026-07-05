@@ -46,7 +46,7 @@ export function buildChainAnalysisPrompt({ chain, steps }) {
   const stepsTable = [
     '| # | kind | model | де | tokens | час | помилка |',
     '| --- | --- | --- | --- | --- | --- | --- |',
-    ...(steps ?? []).map(stepRow)
+    ...(steps ?? []).map(s => stepRow(s))
   ].join('\n')
 
   return [

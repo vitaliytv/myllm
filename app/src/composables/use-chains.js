@@ -20,8 +20,8 @@ export function useChains() {
       const raw = await invoke('chains_list', { limit: 200 })
       chains.value = raw.map(r => parseChainRecord(r)).toReversed()
       stepsCache.clear()
-    } catch (e) {
-      error.value = String(e?.message ?? e)
+    } catch (error) {
+      error.value = String(error?.message ?? error)
     }
   }
 

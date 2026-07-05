@@ -154,19 +154,31 @@ const aggregates = computed(() =>
 
 const visibleChains = computed(() => chains.chains.value.slice(0, 100))
 
-/** Кольори outcome-бейджа. */
+/**
+ * Кольори outcome-бейджа.
+ * @param {string} outcome success|partial|fail
+ * @returns {string} назва кольору Quasar
+ */
 function outcomeColor(outcome) {
   if (outcome === 'success') return 'positive'
   if (outcome === 'partial') return 'warning'
   return 'negative'
 }
 
-/** Чи має ланцюжок збережений аналіз (індекс chain-analyses.jsonl). */
+/**
+ * Чи має ланцюжок збережений аналіз (індекс chain-analyses.jsonl).
+ * @param {string} chainId id ланцюжка
+ * @returns {boolean} true — аналіз збережено
+ */
 function hasAnalysis(chainId) {
   return chains.analyses.value.some(a => a?.chainId === chainId)
 }
 
-/** Розгортає ланцюжок; кроки вантажаться ліниво і джойняться з проксі-логом. */
+/**
+ * Розгортає ланцюжок; кроки вантажаться ліниво і джойняться з проксі-логом.
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @returns {Promise<void>}
+ */
 async function toggle(c) {
   const open = !expanded.value[c.chainId]
   expanded.value = { ...expanded.value, [c.chainId]: open }
@@ -179,7 +191,11 @@ async function toggle(c) {
   }
 }
 
-/** Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог). */
+/**
+ * Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог).
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @returns {Promise<void>}
+ */
 async function analyze(c) {
   if (!joinedSteps.value[c.chainId]) {
     const steps = await chains.loadSteps(c.chainId)

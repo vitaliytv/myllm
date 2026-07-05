@@ -104,9 +104,7 @@ const selectedModel = ref(null)
 const inputLabel = computed(() => (turns.value.length ? 'Повідомлення' : 'Prompt'))
 const sendLabel = computed(() => (turns.value.length ? 'Надіслати' : 'Запустити'))
 const sendDisabled = computed(() => running.value || !prompt.value.trim() || !selectedModel.value)
-const lastAgentText = computed(
-  () => [...turns.value].reverse().find(t => t.role === 'agent' && !t.isError)?.text ?? ''
-)
+const lastAgentText = computed(() => turns.value.findLast(t => t.role === 'agent' && !t.isError)?.text ?? '')
 
 // Сесія прив'язана лише до запису історії — модель можна міняти між ходами
 // одного й того ж діалогу, `pi` продовжує той самий контекст незалежно від того,
@@ -175,7 +173,7 @@ async function send() {
   align-self: flex-end;
   max-width: 85%;
   padding: 7px 11px;
-  border-radius: 12px 12px 2px 12px;
+  border-radius: 12px 12px 2px;
   background: color-mix(in srgb, #0a84ff 18%, transparent);
   white-space: pre-wrap;
   overflow-wrap: anywhere;

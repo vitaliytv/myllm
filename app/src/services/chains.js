@@ -106,7 +106,7 @@ export function joinStepsWithRequests(steps, chainId, requestEntries) {
  */
 export function chainAggregates(chains, { sinceMs } = {}) {
   const inRange = c => !sinceMs || (c.ts && Date.parse(c.ts) >= sinceMs)
-  const filtered = (chains ?? []).filter(inRange)
+  const filtered = (chains ?? []).filter(c => inRange(c))
 
   const perKindMap = new Map()
   const perUnitMap = new Map()
@@ -142,14 +142,16 @@ export function chainAggregates(chains, { sinceMs } = {}) {
     u.cloudTokens += c.usageCloud?.totalTokens ?? 0
   }
 
-  const perKind = [...perKindMap.values()].map(k => ({
+  const perKind = Array.from(perKindMap.values(), k => ({
     ...k,
     escalationRate: k.chains ? k.escalated / k.chains : 0,
     avgWallMs: k.chains ? Math.round(k.wallMs / k.chains) : 0
   }))
 
-  const alwaysEscalatedUnits = [...perUnitMap.values()]
+  const alwaysEscalatedUnits = perUnitMap
+    .values()
     .filter(u => u.chains >= 3 && u.cloudCalls > 0 && u.escalated + u.cloudOnly === u.chains)
+    .toArray()
     .toSorted((a, b) => b.cloudTokens - a.cloudTokens || b.cloudCalls - a.cloudCalls)
 
   return { perKind, alwaysEscalatedUnits, totals }

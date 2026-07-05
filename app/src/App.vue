@@ -80,8 +80,8 @@
 
         <ChainsPanel
           v-if="activeTab === 'chains'"
-          @analyze="openChainAnalysis"
           ref="chainsPanel"
+          @analyze="openChainAnalysis"
           :history-entries="history.entries.value" />
 
         <template v-if="activeTab === 'queue' && queue.connected.value">
@@ -419,7 +419,7 @@ function clearHistory() {
 <style scoped>
 .entry-body pre {
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   font-size: 0.8rem;
   max-height: 320px;
   overflow-y: auto;

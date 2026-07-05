@@ -42,7 +42,7 @@ describe('groupEntriesByCorrelation', () => {
 
   it('порожній вхід → порожній список', () => {
     expect(groupEntriesByCorrelation([])).toEqual([])
-    expect(groupEntriesByCorrelation(undefined)).toEqual([])
+    expect(groupEntriesByCorrelation()).toEqual([])
   })
 })
 
