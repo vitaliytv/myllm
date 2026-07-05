@@ -19,6 +19,10 @@ pub fn run() {
             omlx::proxy::proxy_stop,
             omlx::proxy::proxy_history,
             omlx::proxy::proxy_clear_history,
+            omlx::chains::chains_list,
+            omlx::chains::chain_steps,
+            omlx::chains::save_chain_analysis,
+            omlx::chains::list_chain_analyses,
             pi_agent::pi_agent_models,
             pi_agent::run_pi_agent
         ]);
