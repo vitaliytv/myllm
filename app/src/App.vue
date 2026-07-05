@@ -237,6 +237,7 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
+import { useUpdater } from '@7n/tauri-components/vue'
 import { Dialog, Notify } from 'quasar'
 import ChainsPanel from './components/ChainsPanel.vue'
 import PiSessionDialog from './components/PiSessionDialog.vue'
@@ -246,7 +247,6 @@ import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { usePiAgent } from './composables/use-pi-agent.js'
 import { useProxy } from './composables/use-proxy.js'
 import { useRequestHistory } from './composables/use-request-history.js'
-import { useUpdater } from './composables/use-updater.js'
 import { loadConnection, saveConnection } from './services/omlx-connection.js'
 
 const agent = useAgent()
