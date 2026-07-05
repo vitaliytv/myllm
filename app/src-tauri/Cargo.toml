@@ -29,6 +29,7 @@ tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components" }
 tauri-plugin-http = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 # admin-клієнт (login+stats) тримає cookie-сесію; proxy.rs стрімить тіло
 # відповіді без буферизації (важливо для SSE chat/completions).
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "stream", "rustls-tls"] }

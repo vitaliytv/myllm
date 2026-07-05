@@ -81,6 +81,24 @@ pub struct RequestLogEntry {
     /// також коли запит просто не підпадав під формат (tool-calls,
     /// response_format, не chat-completions) — компресія свідомо пропущена.
     pub prompt_compressed: bool,
+    /// Кореляція з ланцюжками @nitra/llm-lib (заголовок `x-chain-id`).
+    /// `skip_serializing_if` — старі/некорельовані записи без null-шуму.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correlation_id: Option<String>,
+    /// Номер кроку в ланцюжку (`x-chain-step`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_step: Option<u32>,
+    /// Тип задачі ланцюжка (`x-chain-kind`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_kind: Option<String>,
+    /// Директорія виклику клієнта (`x-chain-cwd`, декодована) — без
+    /// process-інтроспекції.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_cwd: Option<String>,
+    /// Fallback-джойн із trace llm-lib: sha256 hex16 останнього user-повідомлення
+    /// (контракт у `chains.rs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_hash: Option<String>,
 }
 
 struct ProxyShared {
@@ -275,6 +293,9 @@ async fn proxy_handler(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let request_headers = redact_headers(&headers);
+    // Кореляція з ланцюжками llm-lib: x-chain-* заголовки + prompt_hash з
+    // ОРИГІНАЛЬНОГО тіла (до компресії — клієнт хешує те, що надіслав).
+    let correlation = super::chains::extract_correlation(&headers, request_body.as_ref());
 
     // Компресуємо тіло, що йде на upstream, окремо від `request_body`, який
     // лишається оригіналом для логу історії — так видно і що прислав
@@ -364,6 +385,11 @@ async fn proxy_handler(
             response_text,
             client,
             prompt_compressed,
+            correlation_id: correlation.correlation_id,
+            chain_step: correlation.chain_step,
+            chain_kind: correlation.chain_kind,
+            chain_cwd: correlation.chain_cwd,
+            prompt_hash: correlation.prompt_hash,
         };
         finalize_entry(&shared_for_task, entry).await;
     });

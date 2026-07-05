@@ -54,6 +54,14 @@
     </div>
 
     <template #actions>
+      <q-btn
+        v-if="saveable && lastAgentText"
+        @click="emit('save', lastAgentText)"
+        flat
+        no-caps
+        color="teal"
+        icon="sym_o_save"
+        label="Зберегти аналіз" />
       <DialogActions
         @submit="send"
         cancel-label="Закрити"
@@ -78,8 +86,12 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   entry: { type: Object, default: null },
   models: { type: Array, default: () => [] }, // [{key, label, model}] з N_*_MODEL env
+  // Готовий стартовий промпт (chain-аналіз) — перекриває buildAnalysisPrompt(entry).
+  initialPrompt: { type: String, default: '' },
+  // Показує кнопку «Зберегти аналіз» (емітить 'save' з останньою відповіддю агента).
+  saveable: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'save'])
 
 const piAgent = usePiAgent()
 
@@ -92,6 +104,9 @@ const selectedModel = ref(null)
 const inputLabel = computed(() => (turns.value.length ? 'Повідомлення' : 'Prompt'))
 const sendLabel = computed(() => (turns.value.length ? 'Надіслати' : 'Запустити'))
 const sendDisabled = computed(() => running.value || !prompt.value.trim() || !selectedModel.value)
+const lastAgentText = computed(
+  () => [...turns.value].reverse().find(t => t.role === 'agent' && !t.isError)?.text ?? ''
+)
 
 // Сесія прив'язана лише до запису історії — модель можна міняти між ходами
 // одного й того ж діалогу, `pi` продовжує той самий контекст незалежно від того,
@@ -103,7 +118,7 @@ function onShow() {
   turns.value = []
   running.value = false
   selectedModel.value = props.models[0] ?? null
-  prompt.value = props.entry ? buildAnalysisPrompt(props.entry) : ''
+  prompt.value = props.initialPrompt || (props.entry ? buildAnalysisPrompt(props.entry) : '')
 }
 
 /** Прокручує лог до останньої репліки після оновлення DOM. */

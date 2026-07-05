@@ -17,6 +17,13 @@
     <AgentDialog v-model="agentOpen" :agent="agent" prompt-hint="наприклад: чому черга не рухається?" />
     <AuditDialog v-model="auditOpen" :agent="agent" />
     <PiSessionDialog v-model="piSessionOpen" :entry="piSessionEntry" :models="piAgent.models.value" />
+    <PiSessionDialog
+      v-model="chainAnalysisOpen"
+      @save="saveChainAnalysis"
+      :entry="chainAnalysisEntry"
+      :models="piAgent.models.value"
+      :initial-prompt="chainAnalysisPrompt"
+      saveable />
 
     <q-page-container>
       <q-page class="q-pa-lg column q-gutter-md">
@@ -66,7 +73,18 @@
           </q-card-section>
         </q-card>
 
-        <template v-if="queue.connected.value">
+        <q-tabs v-model="activeTab" dense no-caps align="left" class="text-grey-7" active-color="primary">
+          <q-tab name="queue" label="Черга і запити" />
+          <q-tab name="chains" label="Ланцюжки" />
+        </q-tabs>
+
+        <ChainsPanel
+          v-if="activeTab === 'chains'"
+          @analyze="openChainAnalysis"
+          ref="chainsPanel"
+          :history-entries="history.entries.value" />
+
+        <template v-if="activeTab === 'queue' && queue.connected.value">
           <div class="text-subtitle1">Черга зараз</div>
           <div class="row q-gutter-md">
             <q-card v-for="model in queue.snapshot.value.models" :key="model.id" flat bordered class="col-12 col-md-5">
@@ -152,6 +170,9 @@
                   <span class="text-weight-medium">{{ entry.path }}</span>
                   <span class="text-grey-6 q-ml-sm">{{ formatTime(entry.timestampMs) }}</span>
                   <q-badge v-if="entry.model" outline color="primary" class="q-ml-sm">{{ entry.model }}</q-badge>
+                  <q-badge v-if="entry.correlationId" outline color="teal" class="q-ml-sm" :title="`ланцюжок ${entry.correlationId}${entry.chainKind ? ` (${entry.chainKind})` : ''}, крок ${entry.chainStep ?? '?'}`">
+                    ⛓ {{ entry.correlationId.slice(0, 8) }}<template v-if="entry.chainStep">#{{ entry.chainStep }}</template>
+                  </q-badge>
                   <q-badge :color="entry.status < 400 ? 'positive' : 'negative'" class="q-ml-sm">
                     {{ entry.status }}
                   </q-badge>
@@ -217,7 +238,9 @@ import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { Dialog, Notify } from 'quasar'
+import ChainsPanel from './components/ChainsPanel.vue'
 import PiSessionDialog from './components/PiSessionDialog.vue'
+import { buildChainAnalysisPrompt, inferTargetRepo } from './services/chain-analysis.js'
 import { useAgent } from './composables/use-agent.js'
 import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { usePiAgent } from './composables/use-pi-agent.js'
@@ -241,6 +264,12 @@ const expandedEntries = ref({})
 const appVersion = ref('')
 const piSessionOpen = ref(false)
 const piSessionEntry = ref(null)
+const activeTab = ref('queue')
+const chainsPanel = ref(null)
+const chainAnalysisOpen = ref(false)
+const chainAnalysisEntry = ref(null)
+const chainAnalysisPrompt = ref('')
+const chainAnalysisChain = ref(null)
 
 /**
  * Логінить admin-сесію і піднімає локальний проксі.
@@ -338,6 +367,42 @@ function openPiSession(entry) {
   if (!entry.client?.cwd || !piAgent.models.value.length) return
   piSessionEntry.value = entry
   piSessionOpen.value = true
+}
+
+/**
+ * Відкриває pi-аналіз цілого ланцюжка: сесія стартує у cwd задачі, промпт —
+ * таблиця кроків + завдання запропонувати зміни до інструмента-джерела.
+ * @param {{chain: object, steps: Array<object>}} payload з ChainsPanel
+ * @returns {void}
+ */
+function openChainAnalysis({ chain, steps }) {
+  if (!chain.cwd || !piAgent.models.value.length) return
+  chainAnalysisChain.value = chain
+  chainAnalysisEntry.value = { id: `chain-${chain.chainId}`, client: { cwd: chain.cwd } }
+  chainAnalysisPrompt.value = buildChainAnalysisPrompt({ chain, steps })
+  chainAnalysisOpen.value = true
+}
+
+/**
+ * Зберігає markdown-результат аналізу ланцюжка у ~/.n-cursor/insights/ і
+ * оновлює бейджі вкладки «Ланцюжки».
+ * @param {string} markdown остання відповідь агента
+ * @returns {Promise<void>}
+ */
+async function saveChainAnalysis(markdown) {
+  const chain = chainAnalysisChain.value
+  if (!chain) return
+  const path = await invoke('save_chain_analysis', {
+    chainId: chain.chainId,
+    chainKind: chain.chainKind,
+    unit: chain.unit,
+    cwd: chain.cwd,
+    targetRepo: inferTargetRepo(chain.chainKind),
+    model: chain.finalModel,
+    markdown,
+  })
+  Notify.create({ message: `Аналіз збережено: ${path}`, color: 'positive', timeout: 2500 })
+  chainsPanel.value?.reload?.()
 }
 
 /** Очищає історію запитів після підтвердження користувачем. */
