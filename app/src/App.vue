@@ -247,7 +247,7 @@ import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { usePiAgent } from './composables/use-pi-agent.js'
 import { useProxy } from './composables/use-proxy.js'
 import { useRequestHistory } from './composables/use-request-history.js'
-import { useUpdater } from './composables/use-updater.js'
+import { useUpdater } from '@7n/tauri-components/vue'
 import { loadConnection, saveConnection } from './services/omlx-connection.js'
 
 const agent = useAgent()
