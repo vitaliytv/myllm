@@ -1,6 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "project": ["**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}"],
+  "project": [
+    "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}"
+  ],
   "ignore": [
     "**/__fixtures__/**",
     ".pi/extensions/n-cursor-adr/**",
@@ -45,7 +47,11 @@
       ]
     },
     "app": {
-      "entry": ["src/**/*.test.js", "test/happy-dom.preload.js"]
+      "entry": [
+        "src/**/*.test.js",
+        "test/happy-dom.preload.js",
+        "stryker-vue-macros-ignorer.mjs"
+      ]
     }
   }
 }

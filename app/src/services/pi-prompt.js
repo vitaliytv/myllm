@@ -9,8 +9,8 @@ export function buildAnalysisPrompt(entry) {
   const meta = [
     entry.path && `шлях: ${entry.path}`,
     entry.model && `модель: ${entry.model}`,
-    entry.status != null && `статус: ${entry.status}`,
-    entry.durationMs != null && `тривалість: ${entry.durationMs}ms`
+    entry.status !== null && entry.status !== undefined && `статус: ${entry.status}`,
+    entry.durationMs !== null && entry.durationMs !== undefined && `тривалість: ${entry.durationMs}ms`
   ]
     .filter(Boolean)
     .join(', ')

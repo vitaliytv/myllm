@@ -59,6 +59,12 @@
       </q-card-section>
     </q-card>
 
+    <q-banner v-if="!props.proxyRunning && chains.chains.value.length" dense class="bg-blue-1 text-blue-10">
+      Проксі не запущено — direct-режим: клієнти @nitra/llm-lib ходять напряму до omlx, тож локальні кроки
+      тут без часу/duration проксі (лише дані trace); при opt-in <code>N_LLM_TRACE_BODIES=1</code> повні
+      prompt/response все одно доступні для аналізу.
+    </q-banner>
+
     <q-card v-if="!chains.chains.value.length" flat bordered>
       <q-card-section class="text-grey-7">
         Ланцюжків ще нема. Вони зʼявляються, коли клієнти @nitra/llm-lib (lint --fix, docgen, 7n-test)
@@ -129,13 +135,14 @@
 </template>
 
 <script setup>
-import { chainAggregates, joinStepsWithRequests } from '../services/chains.js'
+import { chainAggregates, joinStepsWithBodies, joinStepsWithRequests } from '../services/chains.js'
 import { useChains } from '../composables/use-chains.js'
 
 // Вкладка «Ланцюжки»: список задач із trace @nitra/llm-lib + аналітика.
 // historyEntries — записи проксі для джойну локальних кроків (correlationId).
 const props = defineProps({
   historyEntries: { type: Array, default: () => [] },
+  proxyRunning: { type: Boolean, default: false },
 })
 const emit = defineEmits(['analyze'])
 
@@ -154,19 +161,31 @@ const aggregates = computed(() =>
 
 const visibleChains = computed(() => chains.chains.value.slice(0, 100))
 
-/** Кольори outcome-бейджа. */
+/**
+ * Кольори outcome-бейджа.
+ * @param {string} outcome success|partial|fail
+ * @returns {string} назва кольору Quasar
+ */
 function outcomeColor(outcome) {
   if (outcome === 'success') return 'positive'
   if (outcome === 'partial') return 'warning'
   return 'negative'
 }
 
-/** Чи має ланцюжок збережений аналіз (індекс chain-analyses.jsonl). */
+/**
+ * Чи має ланцюжок збережений аналіз (індекс chain-analyses.jsonl).
+ * @param {string} chainId id ланцюжка
+ * @returns {boolean} true — аналіз збережено
+ */
 function hasAnalysis(chainId) {
   return chains.analyses.value.some(a => a?.chainId === chainId)
 }
 
-/** Розгортає ланцюжок; кроки вантажаться ліниво і джойняться з проксі-логом. */
+/**
+ * Розгортає ланцюжок; кроки вантажаться ліниво і джойняться з проксі-логом.
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @returns {Promise<void>}
+ */
 async function toggle(c) {
   const open = !expanded.value[c.chainId]
   expanded.value = { ...expanded.value, [c.chainId]: open }
@@ -179,7 +198,15 @@ async function toggle(c) {
   }
 }
 
-/** Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог). */
+/**
+ * Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог).
+ * Кроки додатково збагачуються повними тілами з opt-in body-capture стору
+ * (працює й для cloud-кроків, на відміну від проксі-джойну) — якщо
+ * `N_LLM_TRACE_BODIES` не вмикали, `loadBodies` повертає порожній список
+ * і кроки лишаються як після `joinStepsWithRequests`.
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @returns {Promise<void>}
+ */
 async function analyze(c) {
   if (!joinedSteps.value[c.chainId]) {
     const steps = await chains.loadSteps(c.chainId)
@@ -188,7 +215,9 @@ async function analyze(c) {
       [c.chainId]: joinStepsWithRequests(steps, c.chainId, props.historyEntries),
     }
   }
-  emit('analyze', { chain: c, steps: joinedSteps.value[c.chainId] })
+  const bodies = await chains.loadBodies(c.chainId)
+  const enrichedSteps = joinStepsWithBodies(joinedSteps.value[c.chainId], bodies)
+  emit('analyze', { chain: c, steps: enrichedSteps })
 }
 
 /** Оновлює список і бейджі аналізів. */

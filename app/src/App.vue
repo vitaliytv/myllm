@@ -80,9 +80,10 @@
 
         <ChainsPanel
           v-if="activeTab === 'chains'"
-          @analyze="openChainAnalysis"
           ref="chainsPanel"
-          :history-entries="history.entries.value" />
+          @analyze="openChainAnalysis"
+          :history-entries="history.entries.value"
+          :proxy-running="proxy.running.value" />
 
         <template v-if="activeTab === 'queue' && queue.connected.value">
           <div class="text-subtitle1">Черга зараз</div>
@@ -237,7 +238,6 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
-import { useUpdater } from '@7n/tauri-components/vue'
 import { Dialog, Notify } from 'quasar'
 import ChainsPanel from './components/ChainsPanel.vue'
 import PiSessionDialog from './components/PiSessionDialog.vue'
@@ -247,6 +247,7 @@ import { useOmlxQueue } from './composables/use-omlx-queue.js'
 import { usePiAgent } from './composables/use-pi-agent.js'
 import { useProxy } from './composables/use-proxy.js'
 import { useRequestHistory } from './composables/use-request-history.js'
+import { useUpdater } from '@7n/tauri-components/vue'
 import { loadConnection, saveConnection } from './services/omlx-connection.js'
 
 const agent = useAgent()
@@ -419,7 +420,7 @@ function clearHistory() {
 <style scoped>
 .entry-body pre {
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   font-size: 0.8rem;
   max-height: 320px;
   overflow-y: auto;

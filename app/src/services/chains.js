@@ -98,6 +98,24 @@ export function joinStepsWithRequests(steps, chainId, requestEntries) {
 }
 
 /**
+ * Приєднує повні тіла (prompt/response) opt-in body-capture стору llm-lib
+ * (`read_body_capture`) до кроків — primary `chainStep`, fallback
+ * `promptHash`. На відміну від `joinStepsWithRequests` (лише local через
+ * проксі), працює й для CLOUD-кроків — body-capture пише для обох.
+ * @param {Array<object>} steps кроки (опційно вже після joinStepsWithRequests)
+ * @param {Array<object>} bodies записи body-capture стору (read_body_capture)
+ * @returns {Array<object>} кроки з приєднаним `body` (`{prompt, output}` або null)
+ */
+export function joinStepsWithBodies(steps, bodies) {
+  const entries = bodies ?? []
+  return (steps ?? []).map(step => {
+    const byStep = entries.find(b => b?.chainStep === step.chainStep)
+    const byHash = byStep ?? (step.promptHash ? entries.find(b => b?.promptHash === step.promptHash) : null)
+    return { ...step, body: byHash ? { prompt: byHash.prompt ?? null, output: byHash.output ?? null } : null }
+  })
+}
+
+/**
  * Агрегати для аналітики: perKind-метрики + юніти, що завжди ескалюють
  * (кандидати на T0-скрипти), з фільтром періоду.
  * @param {Array<object>} chains нормалізовані ланцюжки (parseChainRecord)
@@ -106,7 +124,7 @@ export function joinStepsWithRequests(steps, chainId, requestEntries) {
  */
 export function chainAggregates(chains, { sinceMs } = {}) {
   const inRange = c => !sinceMs || (c.ts && Date.parse(c.ts) >= sinceMs)
-  const filtered = (chains ?? []).filter(inRange)
+  const filtered = (chains ?? []).filter(c => inRange(c))
 
   const perKindMap = new Map()
   const perUnitMap = new Map()
@@ -142,14 +160,16 @@ export function chainAggregates(chains, { sinceMs } = {}) {
     u.cloudTokens += c.usageCloud?.totalTokens ?? 0
   }
 
-  const perKind = [...perKindMap.values()].map(k => ({
+  const perKind = Array.from(perKindMap.values(), k => ({
     ...k,
     escalationRate: k.chains ? k.escalated / k.chains : 0,
     avgWallMs: k.chains ? Math.round(k.wallMs / k.chains) : 0
   }))
 
-  const alwaysEscalatedUnits = [...perUnitMap.values()]
+  const alwaysEscalatedUnits = perUnitMap
+    .values()
     .filter(u => u.chains >= 3 && u.cloudCalls > 0 && u.escalated + u.cloudOnly === u.chains)
+    .toArray()
     .toSorted((a, b) => b.cloudTokens - a.cloudTokens || b.cloudCalls - a.cloudCalls)
 
   return { perKind, alwaysEscalatedUnits, totals }

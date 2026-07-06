@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { chainAggregates, groupEntriesByCorrelation, joinStepsWithRequests, parseChainRecord, parseChainStep } from './chains.js'
+import {
+  chainAggregates,
+  groupEntriesByCorrelation,
+  joinStepsWithBodies,
+  joinStepsWithRequests,
+  parseChainRecord,
+  parseChainStep
+} from './chains.js'
 
 const chain = (over = {}) => parseChainRecord({
   ts: '2026-07-05T10:00:00.000Z',
@@ -42,7 +49,7 @@ describe('groupEntriesByCorrelation', () => {
 
   it('порожній вхід → порожній список', () => {
     expect(groupEntriesByCorrelation([])).toEqual([])
-    expect(groupEntriesByCorrelation(undefined)).toEqual([])
+    expect(groupEntriesByCorrelation()).toEqual([])
   })
 })
 
@@ -66,6 +73,33 @@ describe('joinStepsWithRequests', () => {
     const joined = joinStepsWithRequests(steps, 'c1', [{ promptHash: 'h1', durationMs: 7 }])
     expect(joined[0].request).toMatchObject({ durationMs: 7 })
     expect(joined[1].cloud).toBe(true)
+  })
+})
+
+describe('joinStepsWithBodies', () => {
+  const steps = [
+    parseChainStep({ chainStep: 1, model: 'omlx/g', promptHash: 'h1' }),
+    parseChainStep({ chainStep: 2, model: 'openai/gpt', promptHash: 'h2' })
+  ]
+
+  it('primary-джойн за chainStep, працює й для cloud-кроків', () => {
+    const joined = joinStepsWithBodies(steps, [
+      { chainStep: 1, prompt: 'p1', output: 'o1' },
+      { chainStep: 2, prompt: 'p2', output: 'o2' }
+    ])
+    expect(joined[0].body).toEqual({ prompt: 'p1', output: 'o1' })
+    expect(joined[1].body).toEqual({ prompt: 'p2', output: 'o2' })
+  })
+
+  it('fallback за promptHash, без матчу — body:null', () => {
+    const joined = joinStepsWithBodies(steps, [{ promptHash: 'h1', prompt: 'p1', output: 'o1' }])
+    expect(joined[0].body).toEqual({ prompt: 'p1', output: 'o1' })
+    expect(joined[1].body).toBeNull()
+  })
+
+  it('порожній bodies — усі body:null, не падає', () => {
+    expect(joinStepsWithBodies(steps, [])).toEqual([{ ...steps[0], body: null }, { ...steps[1], body: null }])
+    expect(joinStepsWithBodies(steps)[0].body).toBeNull()
   })
 })
 

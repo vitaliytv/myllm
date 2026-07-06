@@ -23,6 +23,7 @@ pub fn run() {
             omlx::chains::chain_steps,
             omlx::chains::save_chain_analysis,
             omlx::chains::list_chain_analyses,
+            omlx::chains::read_body_capture,
             pi_agent::pi_agent_models,
             pi_agent::run_pi_agent
         ]);
