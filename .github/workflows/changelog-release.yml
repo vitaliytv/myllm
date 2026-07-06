@@ -15,7 +15,7 @@ on:
     paths:
       - 'app/.changes/**'
 
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 concurrency:
   group: changelog-release
