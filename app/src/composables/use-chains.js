@@ -17,7 +17,7 @@ async function loadBodies(chainId) {
 }
 
 /**
- * Ланцюжки LLM-викликів із глобального trace `@nitra/llm-lib`
+ * Ланцюжки LLM-викликів із глобального trace `@7n/llm-lib`
  * (`~/.n-cursor/llm-trace.jsonl`, читає Rust-команда `chains_list`).
  * Кроки ланцюжка вантажаться ліниво при розгортанні і кешуються.
  * @returns {object} { chains, analyses, error, load(), loadSteps(chainId), loadAnalyses() }

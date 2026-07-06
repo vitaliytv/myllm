@@ -61,3 +61,6 @@ reports/stryker/incremental.json
 # Test artifacts: Stryker + coverage (test.mdc)
 **/coverage/
 
+# Cargo workspace build output (тепер у корені, бо src-tauri — член воркспейсу)
+/target/
+

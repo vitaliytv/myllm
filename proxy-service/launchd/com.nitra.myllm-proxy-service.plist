@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nitra.myllm-proxy-service</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <!-- install.sh підміняє цей шлях на реальний бінарник перед копіюванням. -->
+    <string>__MYLLM_PROXY_SERVICE_BIN__</string>
+  </array>
+
+  <!-- OMLX_API_KEY читається сервісом, якщо задано — інакше admin-сесія
+       піднімається вручну через POST /_proxy/admin/connect. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MYLLM_PROXY_UPSTREAM_URL</key>
+    <string>http://127.0.0.1:8000</string>
+    <key>MYLLM_PROXY_PORT</key>
+    <string>8088</string>
+  </dict>
+
+  <!-- Персистентний фоновий сервіс: піднімається при вході й перезапускається
+       при краші (не лише "keep running", а й restart-on-crash). -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/myllm-proxy-service.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/myllm-proxy-service.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
