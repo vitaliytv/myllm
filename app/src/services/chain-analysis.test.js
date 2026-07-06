@@ -46,4 +46,12 @@ describe('buildChainAnalysisPrompt', () => {
     expect(p).toContain('невідома')
     expect(p).not.toContain('БУЛА ескалація')
   })
+
+  it('body-capture: prompt-превʼю у таблиці (працює й для cloud-кроку)', () => {
+    const stepsWithBody = [
+      { ...steps[1], body: { prompt: 'рядок1\nрядок2', output: 'відповідь' } }
+    ]
+    const p = buildChainAnalysisPrompt({ chain, steps: stepsWithBody })
+    expect(p).toContain('| 2 | agent | openai/gpt-5.4-mini | cloud | 345 | — |  | рядок1 рядок2 |')
+  })
 })

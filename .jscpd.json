@@ -5,6 +5,7 @@
   "minLines": 25,
   "ignore": [
     ".claude/worktrees/**",
+    ".cursor/skills/**",
     "**/dist/**",
     "**/CHANGELOG.md",
     "**/src-tauri/target/**",

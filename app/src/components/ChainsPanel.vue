@@ -59,6 +59,12 @@
       </q-card-section>
     </q-card>
 
+    <q-banner v-if="!props.proxyRunning && chains.chains.value.length" dense class="bg-blue-1 text-blue-10">
+      Проксі не запущено — direct-режим: клієнти @nitra/llm-lib ходять напряму до omlx, тож локальні кроки
+      тут без часу/duration проксі (лише дані trace); при opt-in <code>N_LLM_TRACE_BODIES=1</code> повні
+      prompt/response все одно доступні для аналізу.
+    </q-banner>
+
     <q-card v-if="!chains.chains.value.length" flat bordered>
       <q-card-section class="text-grey-7">
         Ланцюжків ще нема. Вони зʼявляються, коли клієнти @nitra/llm-lib (lint --fix, docgen, 7n-test)
@@ -129,13 +135,14 @@
 </template>
 
 <script setup>
-import { chainAggregates, joinStepsWithRequests } from '../services/chains.js'
+import { chainAggregates, joinStepsWithBodies, joinStepsWithRequests } from '../services/chains.js'
 import { useChains } from '../composables/use-chains.js'
 
 // Вкладка «Ланцюжки»: список задач із trace @nitra/llm-lib + аналітика.
 // historyEntries — записи проксі для джойну локальних кроків (correlationId).
 const props = defineProps({
   historyEntries: { type: Array, default: () => [] },
+  proxyRunning: { type: Boolean, default: false },
 })
 const emit = defineEmits(['analyze'])
 
@@ -193,6 +200,10 @@ async function toggle(c) {
 
 /**
  * Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог).
+ * Кроки додатково збагачуються повними тілами з opt-in body-capture стору
+ * (працює й для cloud-кроків, на відміну від проксі-джойну) — якщо
+ * `N_LLM_TRACE_BODIES` не вмикали, `loadBodies` повертає порожній список
+ * і кроки лишаються як після `joinStepsWithRequests`.
  * @param {object} c нормалізований ланцюжок зі списку
  * @returns {Promise<void>}
  */
@@ -204,7 +215,9 @@ async function analyze(c) {
       [c.chainId]: joinStepsWithRequests(steps, c.chainId, props.historyEntries),
     }
   }
-  emit('analyze', { chain: c, steps: joinedSteps.value[c.chainId] })
+  const bodies = await chains.loadBodies(c.chainId)
+  const enrichedSteps = joinStepsWithBodies(joinedSteps.value[c.chainId], bodies)
+  emit('analyze', { chain: c, steps: enrichedSteps })
 }
 
 /** Оновлює список і бейджі аналізів. */

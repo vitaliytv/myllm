@@ -82,7 +82,8 @@
           v-if="activeTab === 'chains'"
           ref="chainsPanel"
           @analyze="openChainAnalysis"
-          :history-entries="history.entries.value" />
+          :history-entries="history.entries.value"
+          :proxy-running="proxy.running.value" />
 
         <template v-if="activeTab === 'queue' && queue.connected.value">
           <div class="text-subtitle1">Черга зараз</div>

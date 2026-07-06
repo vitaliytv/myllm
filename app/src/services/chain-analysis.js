@@ -33,7 +33,8 @@ function stepRow(step) {
   const tokens = step.usage?.totalTokens ?? '—'
   const duration = step.request ? `${step.request.durationMs}ms` : '—'
   const error = step.error ? String(step.error).slice(0, 120) : ''
-  return `| ${step.chainStep} | ${step.kind} | ${step.model ?? '—'} | ${where} | ${tokens} | ${duration} | ${error} |`
+  const promptPreview = step.body?.prompt ? String(step.body.prompt).replaceAll('\n', ' ').slice(0, 100) : ''
+  return `| ${step.chainStep} | ${step.kind} | ${step.model ?? '—'} | ${where} | ${tokens} | ${duration} | ${error} | ${promptPreview} |`
 }
 
 /**
@@ -44,8 +45,8 @@ function stepRow(step) {
 export function buildChainAnalysisPrompt({ chain, steps }) {
   const targetRepo = inferTargetRepo(chain.chainKind)
   const stepsTable = [
-    '| # | kind | model | де | tokens | час | помилка |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| # | kind | model | де | tokens | час | помилка | prompt (превʼю) |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(steps ?? []).map(s => stepRow(s))
   ].join('\n')
 

@@ -186,6 +186,50 @@ pub async fn chain_steps(app: tauri::AppHandle, chain_id: String) -> Result<Vec<
         .collect())
 }
 
+// ─── Читання body-capture (llm-lib opt-in, ~/.n-cursor/llm-bodies/) ───
+
+/// Корінь body-capture стору (той самий резолв, що `bodiesDir()` пакета) —
+/// повні тіла prompt/response, opt-in (`N_LLM_TRACE_BODIES=1` на клієнті).
+/// Первинне джерело для chain-аналізу в direct-режимі (без myllm-проксі):
+/// на відміну від `requests.jsonl` (лише local), тут є й CLOUD-кроки.
+fn bodies_dir(app: &tauri::AppHandle) -> PathBuf {
+    if let Ok(p) = std::env::var("N_LLM_BODIES_DIR") {
+        if !p.is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    let home = app.path().home_dir().unwrap_or_else(|_| PathBuf::from("/"));
+    home.join(".n-cursor").join("llm-bodies")
+}
+
+/// Читає всі `*.json`-тіла з `dir` (одна group-директорія body-capture стору),
+/// сортує за `chainStep`. Відсутня/непридатна для читання директорія → порожній
+/// список (body-capture не увімкнено для цього прогону — не помилка).
+async fn read_body_capture_dir(dir: &Path) -> Vec<Value> {
+    let Ok(mut entries) = fs::read_dir(dir).await else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let Ok(text) = fs::read_to_string(entry.path()).await else {
+            continue;
+        };
+        if let Ok(value) = serde_json::from_str::<Value>(&text) {
+            out.push(value);
+        }
+    }
+    out.sort_by_key(|v| v.get("chainStep").and_then(Value::as_u64).unwrap_or(0));
+    out
+}
+
+/// Повні тіла (prompt+response) кроків одного ланцюжка з body-capture стору
+/// (`<bodiesDir>/<chainId>/*.json`). Порожній список — body-capture не
+/// увімкнено для цього прогону (не помилка).
+#[tauri::command]
+pub async fn read_body_capture(app: tauri::AppHandle, chain_id: String) -> Result<Vec<Value>, String> {
+    Ok(read_body_capture_dir(&bodies_dir(&app).join(&chain_id)).await)
+}
+
 // ─── Збереження результатів chain-аналізу (вкладка «Ланцюжки» → «Аналіз») ───
 
 /// Корінь insights-стору: `~/.n-cursor/insights/` — глобальний cross-project
@@ -396,5 +440,26 @@ mod tests {
     fn percent_decode_roundtrip() {
         assert_eq!(percent_decode("%2Ftmp%2Fx"), "/tmp/x");
         assert_eq!(percent_decode("plain"), "plain");
+    }
+
+    #[tokio::test]
+    async fn read_body_capture_dir_missing_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = read_body_capture_dir(&dir.path().join("no-such-chain")).await;
+        assert!(missing.is_empty());
+    }
+
+    #[tokio::test]
+    async fn read_body_capture_dir_sorts_by_chain_step_and_skips_garbage() {
+        let dir = tempfile::tempdir().unwrap();
+        let chain_dir = dir.path().join("c1");
+        std::fs::create_dir_all(&chain_dir).unwrap();
+        std::fs::write(chain_dir.join("2.json"), r#"{"chainStep":2,"prompt":"друге"}"#).unwrap();
+        std::fs::write(chain_dir.join("1.json"), r#"{"chainStep":1,"prompt":"перше"}"#).unwrap();
+        std::fs::write(chain_dir.join("garbage.json"), "не json").unwrap();
+        let bodies = read_body_capture_dir(&chain_dir).await;
+        assert_eq!(bodies.len(), 2);
+        assert_eq!(bodies[0]["prompt"], "перше");
+        assert_eq!(bodies[1]["prompt"], "друге");
     }
 }

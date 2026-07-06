@@ -47,10 +47,25 @@ export function useChains() {
     }
   }
 
+  /**
+   * Повні тіла (prompt/response) opt-in body-capture стору llm-lib для
+   * ланцюжка — порожній список, якщо `N_LLM_TRACE_BODIES` не було увімкнено
+   * (не помилка, best-effort read).
+   * @param {string} chainId id ланцюжка
+   * @returns {Promise<Array<object>>} записи body-capture стору
+   */
+  async function loadBodies(chainId) {
+    try {
+      return await invoke('read_body_capture', { chainId })
+    } catch {
+      return []
+    }
+  }
+
   onMounted(async () => {
     await load()
     await loadAnalyses()
   })
 
-  return { chains, analyses, error, load, loadSteps, loadAnalyses }
+  return { chains, analyses, error, load, loadSteps, loadAnalyses, loadBodies }
 }
