@@ -11,6 +11,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             omlx::chains::chains_list,
             omlx::chains::chain_steps,
+            omlx::chains::chains_clear_trace,
             omlx::chains::save_chain_analysis,
             omlx::chains::list_chain_analyses,
             omlx::chains::read_body_capture,

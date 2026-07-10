@@ -16,6 +16,15 @@
             unelevated
             toggle-color="primary" />
           <q-space />
+          <q-btn
+            v-if="chains.chains.value.length"
+            @click="clearTrace"
+            flat
+            dense
+            no-caps
+            color="negative"
+            icon="sym_o_delete_sweep"
+            label="Очистити" />
           <q-btn @click="reload" flat dense round icon="sym_o_refresh" title="Оновити з trace" />
         </div>
         <div class="text-caption text-grey-7 q-mt-xs">
@@ -150,6 +159,7 @@
 </template>
 
 <script setup>
+import { Dialog } from 'quasar'
 import {
   chainAggregates,
   chainProblemLabel,
@@ -252,6 +262,21 @@ async function reload() {
   await chains.loadAnalyses()
   expanded.value = {}
   loadedSteps.value = {}
+}
+
+/** Очищає trace ланцюжків після підтвердження користувачем. */
+function clearTrace() {
+  Dialog.create({
+    title: 'Очистити ланцюжки',
+    message:
+      'Trace-файл ланцюжків і body-capture буде очищено безповоротно. Збережені аналізи залишаться.',
+    cancel: true,
+    persistent: true,
+  }).onOk(async () => {
+    await chains.clear()
+    expanded.value = {}
+    loadedSteps.value = {}
+  })
 }
 
 defineExpose({ reload })
