@@ -75,6 +75,14 @@
             <span class="text-weight-medium q-ml-sm">{{ c.unit }}</span>
             <q-badge :color="outcomeColor(c.outcome)" class="q-ml-sm">{{ c.outcome }}</q-badge>
             <q-badge v-if="c.escalated" color="orange" outline class="q-ml-sm">local→cloud</q-badge>
+            <q-badge
+              v-if="chainResolutionLabel(c.extra)"
+              :color="c.extra.resolvedBy === 't0' ? 'positive' : 'primary'"
+              outline
+              class="q-ml-sm"
+              :title="c.extra.resolvedBy === 't0' ? 'закрито детермінованим T0-патерном, без LLM' : 'закрито цим rung-ом ladder-а'">
+              ✓ {{ chainResolutionLabel(c.extra) }}
+            </q-badge>
             <q-badge v-if="hasAnalysis(c.chainId)" color="teal" outline class="q-ml-sm">має аналіз</q-badge>
             <span class="text-caption text-grey-6 q-ml-sm">
               кроків {{ c.steps }} · local {{ c.localCalls }} / cloud {{ c.cloudCalls }} ·
@@ -84,8 +92,17 @@
           <q-item-label caption>
             {{ c.ts }} <span v-if="c.cwd" class="q-ml-sm">{{ c.cwd }}</span>
           </q-item-label>
+          <q-item-label v-if="chainProblemLabel(c.extra)" caption class="ellipsis" :title="chainProblemLabel(c.extra)">
+            🎯 {{ chainProblemLabel(c.extra) }}
+          </q-item-label>
+          <q-item-label v-if="chainTouchedFilesLabel(c.extra)" caption class="ellipsis" :title="chainTouchedFilesLabel(c.extra)">
+            📝 {{ chainTouchedFilesLabel(c.extra) }}
+          </q-item-label>
 
           <q-item-label v-if="expanded[c.chainId]" caption>
+            <div v-for="a in c.extra?.t0Applied ?? []" :key="a.id" class="q-mt-xs">
+              ⚙️ T0 <code>{{ a.id }}</code><span v-if="a.message"> — {{ a.message }}</span>
+            </div>
             <q-markup-table dense flat class="q-mt-sm">
               <thead>
                 <tr>
@@ -133,7 +150,14 @@
 </template>
 
 <script setup>
-import { chainAggregates, isLocalModel, joinStepsWithBodies } from '../services/chains.js'
+import {
+  chainAggregates,
+  chainProblemLabel,
+  chainResolutionLabel,
+  chainTouchedFilesLabel,
+  isLocalModel,
+  joinStepsWithBodies
+} from '../services/chains.js'
 import { useChains } from '../composables/use-chains.js'
 import ChainStepDialog from './ChainStepDialog.vue'
 

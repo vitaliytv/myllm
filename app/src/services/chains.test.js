@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { chainAggregates, isLocalModel, joinStepsWithBodies, parseChainRecord, parseChainStep } from './chains.js'
+import {
+  chainAggregates,
+  chainProblemLabel,
+  chainResolutionLabel,
+  chainTouchedFilesLabel,
+  isLocalModel,
+  joinStepsWithBodies,
+  parseChainRecord,
+  parseChainStep
+} from './chains.js'
 
 const chain = (over = {}) => parseChainRecord({
   ts: '2026-07-05T10:00:00.000Z',
@@ -51,6 +60,32 @@ describe('isLocalModel', () => {
     expect(isLocalModel(null)).toBe(false)
     expect(isLocalModel()).toBe(false)
     expect(isLocalModel('')).toBe(false)
+  })
+})
+
+describe('підписи шапки ланцюжка (extra-конвенція producer-а)', () => {
+  it('chainProblemLabel: кількість · reasons · sample; без problem — порожньо', () => {
+    const extra = {
+      problem: { violations: 3, reasons: ['crc-mismatch', 'missing'], files: ['a.md'], sample: 'CRC не збігся' }
+    }
+    expect(chainProblemLabel(extra)).toBe('3 порушень · crc-mismatch, missing · CRC не збігся')
+    expect(chainProblemLabel({ problem: { violations: 1 } })).toBe('1 порушень')
+    expect(chainProblemLabel({})).toBe('')
+    expect(chainProblemLabel(null)).toBe('')
+  })
+
+  it('chainResolutionLabel: t0 → T0, інакше tier:model, без resolvedBy — порожньо', () => {
+    expect(chainResolutionLabel({ resolvedBy: 't0' })).toBe('T0')
+    expect(chainResolutionLabel({ resolvedBy: 'cloud-min:openai/gpt-5.4-mini' })).toBe('cloud-min:openai/gpt-5.4-mini')
+    expect(chainResolutionLabel({})).toBe('')
+    expect(chainResolutionLabel(undefined)).toBe('')
+  })
+
+  it('chainTouchedFilesLabel: список + хвіст (+N) з touchedTotal', () => {
+    expect(chainTouchedFilesLabel({ touchedFiles: ['a.js', 'b.js'], touchedTotal: 5 })).toBe('a.js, b.js (+3)')
+    expect(chainTouchedFilesLabel({ touchedFiles: ['a.js'] })).toBe('a.js')
+    expect(chainTouchedFilesLabel({ touchedFiles: [] })).toBe('')
+    expect(chainTouchedFilesLabel(null)).toBe('')
   })
 })
 
