@@ -24,6 +24,18 @@ describe('parseChainRecord/parseChainStep', () => {
     expect(parseChainStep({ chainStep: 3, model: 'omlx/x' })).toMatchObject({ chainStep: 3, model: 'omlx/x', error: null })
     expect(parseChainStep(null).chainStep).toBe(0)
   })
+
+  it('зберігає messages/content для перегляду промпту/відповіді кроку', () => {
+    const step = parseChainStep({
+      chainStep: 1,
+      messages: [{ role: 'user', content: 'привіт' }],
+      content: 'відповідь моделі'
+    })
+    expect(step.messages).toEqual([{ role: 'user', content: 'привіт' }])
+    expect(step.content).toBe('відповідь моделі')
+    expect(parseChainStep(null)).toMatchObject({ messages: [], content: null })
+    expect(parseChainStep({ messages: 'не масив' }).messages).toEqual([])
+  })
 })
 
 describe('isLocalModel', () => {

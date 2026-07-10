@@ -60,7 +60,12 @@ export function parseChainStep(raw) {
     usage: raw?.usage ?? null,
     stopReason: raw?.stopReason ?? null,
     promptHash: raw?.promptHash ?? null,
-    error: raw?.error ?? null
+    error: raw?.error ?? null,
+    // Trace-запис несе повний (можливо стиснутий клієнтом) промпт/відповідь —
+    // primary джерело для перегляду «що питали / що відповіла модель» у UI,
+    // доки body-capture (opt-in, нестиснуте) недоступне для цього кроку.
+    messages: Array.isArray(raw?.messages) ? raw.messages : [],
+    content: raw?.content ?? null
   }
 }
 

@@ -98,7 +98,11 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="s in loadedSteps[c.chainId] ?? []" :key="s.chainStep + (s.ts ?? '')">
+                <tr
+                  v-for="s in loadedSteps[c.chainId] ?? []"
+                  :key="s.chainStep + (s.ts ?? '')"
+                  @click.stop="openStep(c, s)"
+                  class="step-row">
                   <td>{{ s.chainStep }}</td>
                   <td>{{ s.kind }}</td>
                   <td>{{ s.model }}</td>
@@ -123,12 +127,15 @@
         </q-item-section>
       </q-item>
     </q-list>
+
+    <ChainStepDialog v-model="stepDialogOpen" :step="selectedStep" />
   </div>
 </template>
 
 <script setup>
 import { chainAggregates, isLocalModel, joinStepsWithBodies } from '../services/chains.js'
 import { useChains } from '../composables/use-chains.js'
+import ChainStepDialog from './ChainStepDialog.vue'
 
 // Вкладка «Ланцюжки»: список задач із trace @7n/llm-lib + аналітика.
 const emit = defineEmits(['analyze'])
@@ -137,6 +144,8 @@ const chains = useChains()
 const expanded = ref({})
 const loadedSteps = ref({})
 const period = ref('week')
+const stepDialogOpen = ref(false)
+const selectedStep = ref(null)
 
 const PERIOD_MS = { day: 24 * 3600 * 1000, week: 7 * 24 * 3600 * 1000 }
 
@@ -182,6 +191,21 @@ async function toggle(c) {
 }
 
 /**
+ * Відкриває деталі кроку (промпт/відповідь) — збагачує повним тілом з
+ * opt-in body-capture стору, якщо воно є для цього ланцюжка (не помилка,
+ * якщо `N_LLM_TRACE_BODIES` не вмикали — лишається trace-версія кроку).
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @param {object} s нормалізований крок (parseChainStep)
+ * @returns {Promise<void>}
+ */
+async function openStep(c, s) {
+  const bodies = await chains.loadBodies(c.chainId)
+  const [enriched] = joinStepsWithBodies([s], bodies)
+  selectedStep.value = enriched
+  stepDialogOpen.value = true
+}
+
+/**
  * Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог).
  * Кроки збагачуються повними тілами з opt-in body-capture стору (працює й
  * для cloud-кроків) — якщо `N_LLM_TRACE_BODIES` не вмикали, `loadBodies`
@@ -208,3 +232,13 @@ async function reload() {
 
 defineExpose({ reload })
 </script>
+
+<style scoped>
+.step-row {
+  cursor: pointer;
+}
+
+.step-row:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+</style>
