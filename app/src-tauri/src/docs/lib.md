@@ -1,14 +1,14 @@
 ---
+type: Rust Module
+title: lib.rs
+resource: app/src-tauri/src/lib.rs
 docgen:
-  source: app/src-tauri/src/lib.rs
-  crc: fd533643
+  crc: 7b67917d
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   issues: judge:inaccurate:0.97
   judgeModel: openai-codex/gpt-5.4-mini
 ---
-
-# lib.rs
 
 ## Огляд
 

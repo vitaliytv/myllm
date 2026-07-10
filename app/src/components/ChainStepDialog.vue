@@ -78,7 +78,7 @@ const title = computed(() => (props.step ? `Крок ${props.step.chainStep} · 
 function textOf(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) return content.filter(p => p?.type === 'text').map(p => p.text).join('')
-  return content == null ? '' : String(content)
+  return content === null || content === undefined ? '' : String(content)
 }
 
 const promptTurns = computed(() => {

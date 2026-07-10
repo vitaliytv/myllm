@@ -123,7 +123,9 @@ pub struct AppState {
 /// фактичним портом (може відрізнятись від запитаного, якщо `config.port`
 /// зайнятий і осі вибрано `0` — тут завжди точний порт, `bind` падає, якщо він
 /// зайнятий, щоб не мовчки слухати не той порт).
-pub async fn bind(config: &Config) -> Result<(u16, TcpListener, Router, Arc<AppState>), ProxyError> {
+pub async fn bind(
+    config: &Config,
+) -> Result<(u16, TcpListener, Router, Arc<AppState>), ProxyError> {
     std::fs::create_dir_all(&config.data_dir)?;
     let log_path = config.data_dir.join("requests.jsonl");
 

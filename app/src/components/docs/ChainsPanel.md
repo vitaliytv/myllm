@@ -1,11 +1,11 @@
 ---
+type: Vue Component
+title: ChainsPanel.vue
+resource: app/src/components/ChainsPanel.vue
 docgen:
-  source: app/src/components/ChainsPanel.vue
-  crc: c23c9915
+  crc: 0ec06c16
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
-
-# ChainsPanel.vue
 
 Компонент відображає аналітичний дашборд для ланцюжків (chains), зібраних з логів. Він надає загальну статистику, деталі за типами ланцюжків та список останніх виконаних ланцюжків.
 
