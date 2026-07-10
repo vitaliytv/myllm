@@ -132,7 +132,10 @@ async fn read_body_capture_dir(dir: &Path) -> Vec<Value> {
 /// (`<bodiesDir>/<chainId>/*.json`). Порожній список — body-capture не
 /// увімкнено для цього прогону (не помилка).
 #[tauri::command]
-pub async fn read_body_capture(app: tauri::AppHandle, chain_id: String) -> Result<Vec<Value>, String> {
+pub async fn read_body_capture(
+    app: tauri::AppHandle,
+    chain_id: String,
+) -> Result<Vec<Value>, String> {
     Ok(read_body_capture_dir(&bodies_dir(&app).join(&chain_id)).await)
 }
 
@@ -142,7 +145,12 @@ pub async fn read_body_capture(app: tauri::AppHandle, chain_id: String) -> Resul
 /// помилка (trace ще не писався). Файл саме трункейтиться, а не видаляється:
 /// у нього паралельно дописують клієнти llm-lib.
 async fn clear_trace_files(trace: &Path, bodies: &Path) -> Result<(), String> {
-    match fs::OpenOptions::new().write(true).truncate(true).open(trace).await {
+    match fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(trace)
+        .await
+    {
         Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(e.to_string()),
@@ -323,9 +331,12 @@ mod tests {
     #[tokio::test]
     async fn clear_trace_files_missing_paths_ok() {
         let dir = tempfile::tempdir().unwrap();
-        clear_trace_files(&dir.path().join("немає.jsonl"), &dir.path().join("немає-dir"))
-            .await
-            .unwrap();
+        clear_trace_files(
+            &dir.path().join("немає.jsonl"),
+            &dir.path().join("немає-dir"),
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -340,8 +351,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let chain_dir = dir.path().join("c1");
         std::fs::create_dir_all(&chain_dir).unwrap();
-        std::fs::write(chain_dir.join("2.json"), r#"{"chainStep":2,"prompt":"друге"}"#).unwrap();
-        std::fs::write(chain_dir.join("1.json"), r#"{"chainStep":1,"prompt":"перше"}"#).unwrap();
+        std::fs::write(
+            chain_dir.join("2.json"),
+            r#"{"chainStep":2,"prompt":"друге"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            chain_dir.join("1.json"),
+            r#"{"chainStep":1,"prompt":"перше"}"#,
+        )
+        .unwrap();
         std::fs::write(chain_dir.join("garbage.json"), "не json").unwrap();
         let bodies = read_body_capture_dir(&chain_dir).await;
         assert_eq!(bodies.len(), 2);

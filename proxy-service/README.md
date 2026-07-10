@@ -48,9 +48,18 @@ curl http://127.0.0.1:8088/_proxy/admin/global-settings
 ## Запуск як launchd-сервіс
 
 ```bash
-./launchd/install.sh    # збирає release-бінарник, реєструє + запускає LaunchAgent
-./launchd/uninstall.sh  # зупиняє й видаляє LaunchAgent (requests.jsonl лишається)
+./launchd/install.sh                 # білдить cargo build --release локально, реєструє + запускає LaunchAgent
+./launchd/install-from-release.sh    # без Rust: завантажує universal-бінарник з GitHub Release (тег latest або конкретний)
+./launchd/uninstall.sh               # зупиняє й видаляє LaunchAgent (requests.jsonl лишається)
 ```
+
+CI (`.github/workflows/release.yml`, job `build-proxy-service`) на кожен тег `v*`
+білдить universal (`aarch64`+`x86_64`, `lipo`) бінарник і кладе його як release
+asset `myllm-proxy-service-universal-apple-darwin.tar.gz` — `install-from-release.sh`
+саме його й завантажує (`gh release download`, потрібен встановлений `gh`). Бінарник
+**не підписаний/нотаризований** (внутрішній інструмент) — якщо Gatekeeper блокує
+запуск, скрипт друкує команду `xattr -d com.apple.quarantine` для ручного зняття
+карантину.
 
 Лог: `/tmp/myllm-proxy-service.log`. Перевірка стану:
 `launchctl print gui/$(id -u)/com.nitra.myllm-proxy-service`.
