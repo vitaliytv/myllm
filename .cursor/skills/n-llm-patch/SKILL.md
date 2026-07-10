@@ -3,6 +3,7 @@ name: n-llm-patch
 description: >-
   Підготовка самодостатнього текстового промпта для іншого Claude/Cursor-агента —
   read-only аналіз CWD без жодних змін у поточному репо
+version: '1.0'
 ---
 
 <!-- markdownlint-disable-file MD024 MD025 -->
@@ -73,12 +74,12 @@ description: >-
   inflight-міграції, breaking-change політика, зовнішні залежності.
 - **Change-file flow,** якщо завдання змінює файли у пакетному workspace (код,
   правила, скіли, конфіги, тести — не лише `docs/`): промпт має вимагати
-  `npx @nitra/cursor change --bump <major|minor|patch> --section <Added|Changed|Fixed|Removed> --message "<опис>" [--ws <шлях>]`
-  і `npx @nitra/cursor fix changelog`. **Ніколи** не інструктуй ручне редагування
+  `npx @7n/n ch [--bump <major|minor|patch>] [--section <Added|Changed|Fixed|Removed>] [--message "<опис>"]`
+  і `npx @nitra/cursor lint changelog`. **Ніколи** не інструктуй ручне редагування
   `CHANGELOG.md` чи bump `version` — це робить release flow / CI (деталь —
   `.cursor/rules/n-changelog.mdc`, не дублюй її текст). Якщо потрібна реліз-нота —
   це change-файл `<ws>/.changes/<timestamp>-<rand>.md` з `bump:` і `section:`,
-  який створює саме `change` CLI, а не редагування файлу вручну.
+  який створює `@7n/n ch`, а не редагування файлу вручну.
 - **Як перевірити** — конкретні команди й специфічні до завдання сигнали
   успіху.
 
@@ -196,7 +197,7 @@ description: >-
 - **Без ручного changelog/version у промпті:** не формулюй у виводі інструкції
   на кшталт "додати запис у `CHANGELOG.md`", "bump `version` вручну" чи
   "оновити `package.json#version`". Зміни у workspace фіксуються винятково
-  через change-file flow (`npx @nitra/cursor change …` → `npx @nitra/cursor fix changelog`);
+  через change-file flow (`npx @7n/n ch` → `npx @nitra/cursor lint changelog`);
   `version`/`CHANGELOG.md` формує CI.
 - **Не вмикай у промпт:** секрети, `.env`, `node_modules`, бінарні файли,
   довгі логи, дампи `tree`, повні JSON конфігів, цитати існуючих
@@ -238,11 +239,11 @@ description: >-
 - Підняти `engines.node` до `>=25`; якщо peer `eslint ^9` несумісний —
   підняти range.
 - Зафіксувати зміну change-файлом (НЕ редагувати `CHANGELOG.md` чи `version`
-  вручну): `npx @nitra/cursor change --bump minor --section Changed --message "engines.node >=25"`.
+  вручну): `npx @7n/n ch --bump minor --section Changed --message "engines.node >=25"`.
 
 # Обмеження
 
-- Дотриматись `.cursor/rules/n-js-lint.mdc` і `.cursor/rules/n-changelog.mdc`
+- Дотриматись `.cursor/rules/n-js.mdc` і `.cursor/rules/n-changelog.mdc`
   (зміни у workspace = change-файл, не ручний CHANGELOG/version bump).
 - Якщо `eslint ^9` офіційно не підтримує Node 25 — підняти peer range.
 
@@ -250,7 +251,7 @@ description: >-
 
 - `bun test` — зелений
 - `node -p "require('./package.json').engines.node"` → `>=25`
-- `npx @nitra/cursor fix changelog` → exit `0`
+- `npx @nitra/cursor lint changelog` → exit `0`
 ```
 ````
 

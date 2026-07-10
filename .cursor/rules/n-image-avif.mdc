@@ -5,7 +5,11 @@ globs: "**/*.{png,jpg,jpeg,gif,avif,vue,html}"
 alwaysApply: false
 ---
 
-AVIF-двійники (`<name>.<ext>.avif`) генерує **виключно** `npx @nitra/cursor fix image-avif` — у `lint-image` прапорець `--avif` заборонений (це валідує правило `image-compress`). Перевірка робить чотири кроки в порядку:
+Правило забезпечує, що кожне raster-зображення (`png`, `jpg`, `jpeg`, `gif`), на яке посилаються `.vue`/`.html` файли, має AVIF-двійник і що посилання переписані на нього. Генерація, rewrite і cleanup AVIF-сиріт виконуються автоматично через `npx @nitra/cursor fix image-avif`.
+
+## Чотирикроковий пайплайн генерації AVIF-двійників
+
+AVIF-двійники (`<name>.<ext>.avif`) генерує **виключно** `npx @nitra/cursor fix image-avif`. Правило `image-compress` відповідає лише за стиснення початкових raster/SVG-файлів через `@nitra/minify-image`, а AVIF лишається окремим правилом. Перевірка виконує чотири кроки в порядку:
 
 1. **Pre-scan**: шукає у `.vue`/`.html` хоча б одне raster-посилання, яке потенційно треба переписати на AVIF-двійник (`import x from '...png'` або `<img src="...png" />`). Пакети з opt-out `disable-avif: true` пропускаються. **Якщо жодного raster-посилання не знайдено — `check image-avif` завершується успіхом одразу: ні `npx --avif`, ні rewrite, ні cleanup-сиріт не виконуються** (нічого було б змінювати). Так уникаємо дорогого `npx @nitra/minify-image` у проєктах, де AVIF не вживається.
 2. Запускає `npx @nitra/minify-image --src=. --write --avif` (≥ **3.3.1**) — генерує `<name>.<ext>.avif` поряд з кожним PNG/JPEG/GIF. CLI порівнює sha1 кожного raster-сорсу зі збереженим у `.n-minify-image.tsv` і перезаписує `<source>.avif` при зміні оригіналу.
@@ -30,24 +34,21 @@ import welcomeImage from './assets/welcome.png.avif'
 
 AVIF-двійники **зберігаємо в git** — це готові артефакти для віддачі браузеру (без них ефект від AVIF втрачається на чистому checkout-і).
 
-## Опт-аут для конкретного пакета
+## Rego-gate: структура опт-аут конфігу у package.json
 
-У workspace-пакеті, де AVIF-імпорти небажані (наприклад, мобільний бандл або публічний сайт без гарантованої AVIF-підтримки), додай у `package.json` цього пакета. Заборонений typo `disabled-avif` (канон — `disable-avif`): `package.json`:
+Rego-пакет: `image-avif.package_json`
 
-```json
-{
-  "@nitra/minify-image": {
-    "disabled-avif": "виглядає як typo — канонічна назва \"disable-avif\" (image-avif.mdc)"
-  }
-}
-```.
+Цільові файли: `package.json` (передається через `--input` у conftest).
 
-```json title="apps/site/package.json"
-{
-  "@nitra/minify-image": {
-    "disable-avif": true
-  }
-}
-```
+Перевіряє три умови:
 
-Тоді перевірка пропускає `.vue` файли цього пакета і не видаляє наявні `.avif` всередині як «сироти». У root-`package.json` опт-аут діє лише для файлів кореня (вкладені workspaces перевіряються незалежно — вмикай прапор у кожному пакеті, де треба).
+- **Тип поля** — `"@nitra/minify-image"` має бути обʼєктом (якщо задано); рядок, масив чи boolean → deny.
+- **Тип прапора** — `"@nitra/minify-image.disable-avif"` має бути `boolean`; рядок або число → deny.
+- **Typo-ключі** — забороняє ключі зі списку deny-template [`package.json.deny.json`](./template/package.json.deny.json) (наприклад, `"disabled-avif"` замість `"disable-avif"`).
+
+Deny-template: [package.json.deny.json](./template/package.json.deny.json)
+
+✓ `{ "@nitra/minify-image": { "disable-avif": true } }`
+✗ `{ "@nitra/minify-image": { "disabled-avif": true } }` — typo-ключ
+✗ `{ "@nitra/minify-image": "disable-avif" }` — поле не є обʼєктом
+✗ `{ "@nitra/minify-image": { "disable-avif": "yes" } }` — не boolean

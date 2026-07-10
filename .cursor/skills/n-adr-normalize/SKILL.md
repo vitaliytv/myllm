@@ -3,6 +3,7 @@ name: n-adr-normalize
 description: >-
   Ручний запуск ADR-нормалізації — обхід порогу й min-interval, прогон одного
   батчу чернеток через LLM, перегляд результату через git diff
+version: '1.0'
 ---
 
 <!-- n-cursor:worktree:start -->
@@ -12,18 +13,27 @@ description: >-
 **Крок 0 — preflight (обовʼязковий, перед будь-якими іншими діями).** Якщо перевірка падає — **STOP**: не питай користувача про назву гілки, а сам створи worktree від поточної гілки за конвенцією `<current-branch>-adr-normal`. Суфікс `adr-normal` — коротка (до 10 символів) транслітерація задачі. Не виконуй **жоден** наступний крок скіла, поки preflight не завершився успіхом.
 
 ```bash
+pwd
 git rev-parse --show-toplevel
 git branch --show-current
 ```
 
-Якщо перша команда показала, що ти **не** в `.worktrees/`, візьми вивід другої команди як `<current-branch>` і виконай **literal-команди без shell expansion** (без command substitution, variable expansion чи backticks). Наприклад, якщо поточна гілка `feature/x`:
+**Root-assert.** Якщо `pwd` **не** збігається з виводом `git rev-parse --show-toplevel` — ти в **піддиректорії** робочого дерева (worktree-шляхи нижче відносні до кореня репо). Спершу перейди в корінь: `cd <toplevel>` (literal-шлях із виводу), і лише тоді продовжуй preflight. Не створюй worktree з піддиректорії — `cd .worktrees/<…>` звідти впаде.
+
+Якщо `git rev-parse --show-toplevel` показав, що ти **не** в `.worktrees/`, візьми вивід `git branch --show-current` як `<current-branch>` і виконай **literal-команди без shell expansion** (без command substitution, variable expansion чи backticks). Наприклад, якщо поточна гілка `feature/x`:
 
 ```bash
-npx @nitra/cursor worktree add "feature/x-adr-normal" "n-adr-normal: worktree-only skill"
+npx @7n/mt worktree create "feature/x-adr-normal" "n-adr-normal: worktree-only skill"
 cd ".worktrees/feature-x-adr-normal"
 ```
 
 Тобто branch-argument лишає slash як у git-гілці, а шлях для `cd` бере sanitized форму: slash → `-`.
+
+**Крок 0.1 — bootstrap у новому дереві (після `cd`).** Дерево щойно створене й **без** `node_modules`. Постав залежності локально — тоді `npx @nitra/cursor <cmd>` бере локальну копію без походу в реєстр:
+
+```bash
+bun install
+```
 <!-- n-cursor:worktree:end -->
 
 # n-adr-normalize — ручна нормалізація ADR-чернеток
