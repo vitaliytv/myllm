@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.0] - 2026-07-10
+
+### Added
+
+- chains: шапка ланцюжка показує проблему (extra.problem), чим закрито (бейдж ✓ T0 / ✓ tier:model з extra.resolvedBy) і змінені файли (extra.touchedFiles, +N з touchedTotal); у розгорнутому вигляді — застосовані T0-патерни (extra.t0Applied)
+
 ## [2.0.0] - 2026-07-06
 
 ### Changed
