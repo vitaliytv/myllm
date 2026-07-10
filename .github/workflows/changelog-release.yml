@@ -37,11 +37,18 @@ jobs:
 
       - uses: ./.github/actions/setup-bun-deps
 
-      - name: Run n-cursor release
+      - name: Configure git identity + push auth
+        # persist-credentials лишається false (ga-rule, безпека): checkout не зберігає токен.
+        # `n-cursor release` і «Tag and push» пушать самі, тож даємо job-scoped ephemeral
+        # GITHUB_TOKEN явно через remote-url (канон nitra/cursor npm-publish.yml) — інакше
+        # push мовчки відлітає і реліз падає «після 5 спроб (non-fast-forward?)».
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          npx @nitra/cursor release
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+      - name: Run n-cursor release
+        run: npx @nitra/cursor release
 
       - name: Detect produced release
         id: rel
