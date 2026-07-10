@@ -46,7 +46,7 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::ReceiverStream;
 
 /// Скільки символів тексту відповіді зберігаємо в записі — запобіжник проти
-/// того, щоб один величезний non-JSON/non-SSE respose роздув requests.jsonl.
+/// того, щоб один величезний non-JSON/non-SSE response роздув requests.jsonl.
 const MAX_RESPONSE_CHARS: usize = 200_000;
 /// Скільки останніх рядків читаємо з requests.jsonl для `/_proxy/history`.
 const DEFAULT_HISTORY_LIMIT: usize = 200;
