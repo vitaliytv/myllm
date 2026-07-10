@@ -145,7 +145,12 @@ pub async fn read_body_capture(
 /// помилка (trace ще не писався). Файл саме трункейтиться, а не видаляється:
 /// у нього паралельно дописують клієнти llm-lib.
 async fn clear_trace_files(trace: &Path, bodies: &Path) -> Result<(), String> {
-    match fs::OpenOptions::new().write(true).truncate(true).open(trace).await {
+    match fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(trace)
+        .await
+    {
         Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(e.to_string()),
@@ -326,9 +331,12 @@ mod tests {
     #[tokio::test]
     async fn clear_trace_files_missing_paths_ok() {
         let dir = tempfile::tempdir().unwrap();
-        clear_trace_files(&dir.path().join("немає.jsonl"), &dir.path().join("немає-dir"))
-            .await
-            .unwrap();
+        clear_trace_files(
+            &dir.path().join("немає.jsonl"),
+            &dir.path().join("немає-dir"),
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
