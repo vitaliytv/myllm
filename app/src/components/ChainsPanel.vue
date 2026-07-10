@@ -59,15 +59,9 @@
       </q-card-section>
     </q-card>
 
-    <q-banner v-if="!props.proxyRunning && chains.chains.value.length" dense class="bg-blue-1 text-blue-10">
-      Проксі не запущено — direct-режим: клієнти @nitra/llm-lib ходять напряму до omlx, тож локальні кроки
-      тут без часу/duration проксі (лише дані trace); при opt-in <code>N_LLM_TRACE_BODIES=1</code> повні
-      prompt/response все одно доступні для аналізу.
-    </q-banner>
-
     <q-card v-if="!chains.chains.value.length" flat bordered>
       <q-card-section class="text-grey-7">
-        Ланцюжків ще нема. Вони зʼявляються, коли клієнти @nitra/llm-lib (lint --fix, docgen, 7n-test)
+        Ланцюжків ще нема. Вони зʼявляються, коли клієнти @7n/llm-lib (lint --fix, docgen, 7n-test)
         пишуть у <code>~/.n-cursor/llm-trace.jsonl</code>.
         <span v-if="chains.error.value" class="text-negative">{{ chains.error.value }}</span>
       </q-card-section>
@@ -100,18 +94,20 @@
                   <th class="text-left">model</th>
                   <th class="text-left">де</th>
                   <th class="text-right">tokens</th>
-                  <th class="text-right">час (проксі)</th>
                   <th class="text-left">помилка</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="s in joinedSteps[c.chainId] ?? []" :key="s.chainStep + (s.ts ?? '')">
+                <tr
+                  v-for="s in loadedSteps[c.chainId] ?? []"
+                  :key="s.chainStep + (s.ts ?? '')"
+                  @click.stop="openStep(c, s)"
+                  class="step-row">
                   <td>{{ s.chainStep }}</td>
                   <td>{{ s.kind }}</td>
                   <td>{{ s.model }}</td>
-                  <td>{{ s.cloud ? 'cloud' : 'local' }}</td>
+                  <td>{{ isLocalModel(s.model) ? 'local' : 'cloud' }}</td>
                   <td class="text-right">{{ s.usage?.totalTokens ?? '—' }}</td>
-                  <td class="text-right">{{ s.request ? `${s.request.durationMs}ms` : '—' }}</td>
                   <td class="ellipsis" style="max-width: 260px">{{ s.error ?? '' }}</td>
                 </tr>
               </tbody>
@@ -131,25 +127,25 @@
         </q-item-section>
       </q-item>
     </q-list>
+
+    <ChainStepDialog v-model="stepDialogOpen" :step="selectedStep" />
   </div>
 </template>
 
 <script setup>
-import { chainAggregates, joinStepsWithBodies, joinStepsWithRequests } from '../services/chains.js'
+import { chainAggregates, isLocalModel, joinStepsWithBodies } from '../services/chains.js'
 import { useChains } from '../composables/use-chains.js'
+import ChainStepDialog from './ChainStepDialog.vue'
 
-// Вкладка «Ланцюжки»: список задач із trace @nitra/llm-lib + аналітика.
-// historyEntries — записи проксі для джойну локальних кроків (correlationId).
-const props = defineProps({
-  historyEntries: { type: Array, default: () => [] },
-  proxyRunning: { type: Boolean, default: false },
-})
+// Вкладка «Ланцюжки»: список задач із trace @7n/llm-lib + аналітика.
 const emit = defineEmits(['analyze'])
 
 const chains = useChains()
 const expanded = ref({})
-const joinedSteps = ref({})
+const loadedSteps = ref({})
 const period = ref('week')
+const stepDialogOpen = ref(false)
+const selectedStep = ref(null)
 
 const PERIOD_MS = { day: 24 * 3600 * 1000, week: 7 * 24 * 3600 * 1000 }
 
@@ -182,41 +178,47 @@ function hasAnalysis(chainId) {
 }
 
 /**
- * Розгортає ланцюжок; кроки вантажаться ліниво і джойняться з проксі-логом.
+ * Розгортає ланцюжок; кроки вантажаться ліниво і кешуються.
  * @param {object} c нормалізований ланцюжок зі списку
  * @returns {Promise<void>}
  */
 async function toggle(c) {
   const open = !expanded.value[c.chainId]
   expanded.value = { ...expanded.value, [c.chainId]: open }
-  if (open && !joinedSteps.value[c.chainId]) {
-    const steps = await chains.loadSteps(c.chainId)
-    joinedSteps.value = {
-      ...joinedSteps.value,
-      [c.chainId]: joinStepsWithRequests(steps, c.chainId, props.historyEntries),
-    }
+  if (open && !loadedSteps.value[c.chainId]) {
+    loadedSteps.value = { ...loadedSteps.value, [c.chainId]: await chains.loadSteps(c.chainId) }
   }
 }
 
 /**
+ * Відкриває деталі кроку (промпт/відповідь) — збагачує повним тілом з
+ * opt-in body-capture стору, якщо воно є для цього ланцюжка (не помилка,
+ * якщо `N_LLM_TRACE_BODIES` не вмикали — лишається trace-версія кроку).
+ * @param {object} c нормалізований ланцюжок зі списку
+ * @param {object} s нормалізований крок (parseChainStep)
+ * @returns {Promise<void>}
+ */
+async function openStep(c, s) {
+  const bodies = await chains.loadBodies(c.chainId)
+  const [enriched] = joinStepsWithBodies([s], bodies)
+  selectedStep.value = enriched
+  stepDialogOpen.value = true
+}
+
+/**
  * Кнопка аналізу: віддає ланцюжок + кроки нагору (App відкриває pi-діалог).
- * Кроки додатково збагачуються повними тілами з opt-in body-capture стору
- * (працює й для cloud-кроків, на відміну від проксі-джойну) — якщо
- * `N_LLM_TRACE_BODIES` не вмикали, `loadBodies` повертає порожній список
- * і кроки лишаються як після `joinStepsWithRequests`.
+ * Кроки збагачуються повними тілами з opt-in body-capture стору (працює й
+ * для cloud-кроків) — якщо `N_LLM_TRACE_BODIES` не вмикали, `loadBodies`
+ * повертає порожній список і кроки лишаються без `body`.
  * @param {object} c нормалізований ланцюжок зі списку
  * @returns {Promise<void>}
  */
 async function analyze(c) {
-  if (!joinedSteps.value[c.chainId]) {
-    const steps = await chains.loadSteps(c.chainId)
-    joinedSteps.value = {
-      ...joinedSteps.value,
-      [c.chainId]: joinStepsWithRequests(steps, c.chainId, props.historyEntries),
-    }
+  if (!loadedSteps.value[c.chainId]) {
+    loadedSteps.value = { ...loadedSteps.value, [c.chainId]: await chains.loadSteps(c.chainId) }
   }
   const bodies = await chains.loadBodies(c.chainId)
-  const enrichedSteps = joinStepsWithBodies(joinedSteps.value[c.chainId], bodies)
+  const enrichedSteps = joinStepsWithBodies(loadedSteps.value[c.chainId], bodies)
   emit('analyze', { chain: c, steps: enrichedSteps })
 }
 
@@ -225,8 +227,18 @@ async function reload() {
   await chains.load()
   await chains.loadAnalyses()
   expanded.value = {}
-  joinedSteps.value = {}
+  loadedSteps.value = {}
 }
 
 defineExpose({ reload })
 </script>
+
+<style scoped>
+.step-row {
+  cursor: pointer;
+}
+
+.step-row:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+</style>

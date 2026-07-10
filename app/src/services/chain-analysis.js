@@ -1,8 +1,11 @@
 // Побудова промпта для LLM-аналізу цілого ланцюжка (вкладка «Ланцюжки»):
-// модель отримує таблицю кроків з приджойненими даними проксі і завдання —
-// маючи read-only доступ до коду в cwd виклику, знайти причину неефективності
-// та запропонувати зміни до інструмента-джерела (@nitra/cursor / @7n/test)
-// у форматі самодостатнього патч-промпта (стиль n-llm-patch).
+// модель отримує таблицю кроків (+ повні тіла з opt-in body-capture, якщо
+// доступні) і завдання — маючи read-only доступ до коду в cwd виклику,
+// знайти причину неефективності та запропонувати зміни до інструмента-
+// джерела (@nitra/cursor / @7n/test) у форматі самодостатнього патч-промпта
+// (стиль n-llm-patch).
+
+import { isLocalModel } from './chains.js'
 
 /** Мапа chainKind → репозиторій-джерело інструмента. */
 const TARGET_REPOS = {
@@ -25,16 +28,15 @@ export function inferTargetRepo(chainKind) {
 
 /**
  * Рядок таблиці кроків для промпта.
- * @param {object} step крок після joinStepsWithRequests
+ * @param {object} step крок (опційно після joinStepsWithBodies)
  * @returns {string} markdown-рядок таблиці
  */
 function stepRow(step) {
-  const where = step.cloud ? 'cloud' : 'local'
+  const where = isLocalModel(step.model) ? 'local' : 'cloud'
   const tokens = step.usage?.totalTokens ?? '—'
-  const duration = step.request ? `${step.request.durationMs}ms` : '—'
   const error = step.error ? String(step.error).slice(0, 120) : ''
   const promptPreview = step.body?.prompt ? String(step.body.prompt).replaceAll('\n', ' ').slice(0, 100) : ''
-  return `| ${step.chainStep} | ${step.kind} | ${step.model ?? '—'} | ${where} | ${tokens} | ${duration} | ${error} | ${promptPreview} |`
+  return `| ${step.chainStep} | ${step.kind} | ${step.model ?? '—'} | ${where} | ${tokens} | ${error} | ${promptPreview} |`
 }
 
 /**
@@ -45,8 +47,8 @@ function stepRow(step) {
 export function buildChainAnalysisPrompt({ chain, steps }) {
   const targetRepo = inferTargetRepo(chain.chainKind)
   const stepsTable = [
-    '| # | kind | model | де | tokens | час | помилка | prompt (превʼю) |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| # | kind | model | де | tokens | помилка | prompt (превʼю) |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
     ...(steps ?? []).map(s => stepRow(s))
   ].join('\n')
 

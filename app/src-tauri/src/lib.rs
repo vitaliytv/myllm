@@ -8,17 +8,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_agent::init())
         .plugin(tauri_plugin_shell::init())
-        .manage(omlx::admin::OmlxState::default())
-        .manage(omlx::proxy::ProxyRuntime::default())
         .invoke_handler(tauri::generate_handler![
-            omlx::admin::omlx_env_api_key,
-            omlx::admin::omlx_connect,
-            omlx::admin::omlx_stats,
-            omlx::admin::omlx_global_settings,
-            omlx::proxy::proxy_start,
-            omlx::proxy::proxy_stop,
-            omlx::proxy::proxy_history,
-            omlx::proxy::proxy_clear_history,
             omlx::chains::chains_list,
             omlx::chains::chain_steps,
             omlx::chains::save_chain_analysis,

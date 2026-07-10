@@ -26,8 +26,8 @@ describe('buildChainAnalysisPrompt', () => {
     usageCloud: { totalTokens: 345 }
   }
   const steps = [
-    { chainStep: 1, kind: 'agent', model: 'omlx/gemma', cloud: false, usage: { totalTokens: 100 }, request: { durationMs: 900 }, error: 'досі порушено' },
-    { chainStep: 2, kind: 'agent', model: 'openai/gpt-5.4-mini', cloud: true, usage: { totalTokens: 345 }, request: null, error: null }
+    { chainStep: 1, kind: 'agent', model: 'omlx/gemma', usage: { totalTokens: 100 }, error: 'досі порушено' },
+    { chainStep: 2, kind: 'agent', model: 'openai/gpt-5.4-mini', usage: { totalTokens: 345 }, error: null }
   ]
 
   it('містить unit, cwd, targetRepo, таблицю кроків і маркер ескалації', () => {
@@ -35,8 +35,8 @@ describe('buildChainAnalysisPrompt', () => {
     expect(p).toContain('fix-concern/text/cspell')
     expect(p).toContain('/Users/x/proj')
     expect(p).toContain('@nitra/cursor')
-    expect(p).toContain('| 1 | agent | omlx/gemma | local | 100 | 900ms | досі порушено |')
-    expect(p).toContain('| 2 | agent | openai/gpt-5.4-mini | cloud | 345 | — |  |')
+    expect(p).toContain('| 1 | agent | omlx/gemma | local | 100 | досі порушено |')
+    expect(p).toContain('| 2 | agent | openai/gpt-5.4-mini | cloud | 345 |  |')
     expect(p).toContain('БУЛА ескалація')
     expect(p).toContain('патч-промпт')
   })
@@ -52,6 +52,6 @@ describe('buildChainAnalysisPrompt', () => {
       { ...steps[1], body: { prompt: 'рядок1\nрядок2', output: 'відповідь' } }
     ]
     const p = buildChainAnalysisPrompt({ chain, steps: stepsWithBody })
-    expect(p).toContain('| 2 | agent | openai/gpt-5.4-mini | cloud | 345 | — |  | рядок1 рядок2 |')
+    expect(p).toContain('| 2 | agent | openai/gpt-5.4-mini | cloud | 345 |  | рядок1 рядок2 |')
   })
 })

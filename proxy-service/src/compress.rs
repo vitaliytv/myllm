@@ -19,7 +19,7 @@
 //! часткова втрата каталогу skills — менша шкода за повну відмову prefill.
 //!
 //! КАНОНІЧНА логіка компресії (spec 2026-07-06-proxy-retirement) перенесена
-//! на клієнт — `@nitra/llm-lib/lib/internal/compress-context.mjs` (той самий
+//! на клієнт — `@7n/llm-lib/lib/internal/compress-context.mjs` (той самий
 //! алгоритм, адаптований під форму pi Context замість OpenAI-body), wired
 //! у кожен раннер пакета через streamFn-mixin `apply-compression.mjs`. Це
 //! Rust-копія відповідає лише за проксі-шлях (клієнти БЕЗ llm-lib, що досі

@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  chainAggregates,
-  groupEntriesByCorrelation,
-  joinStepsWithBodies,
-  joinStepsWithRequests,
-  parseChainRecord,
-  parseChainStep
-} from './chains.js'
+import { chainAggregates, isLocalModel, joinStepsWithBodies, parseChainRecord, parseChainStep } from './chains.js'
 
 const chain = (over = {}) => parseChainRecord({
   ts: '2026-07-05T10:00:00.000Z',
@@ -31,48 +24,33 @@ describe('parseChainRecord/parseChainStep', () => {
     expect(parseChainStep({ chainStep: 3, model: 'omlx/x' })).toMatchObject({ chainStep: 3, model: 'omlx/x', error: null })
     expect(parseChainStep(null).chainStep).toBe(0)
   })
-})
 
-describe('groupEntriesByCorrelation', () => {
-  it('групує за correlationId, одиночні без нього — групи розміру 1', () => {
-    const entries = [
-      { id: 3, correlationId: 'a', chainKind: 'fix-concern', durationMs: 10, model: 'm1' },
-      { id: 2, durationMs: 5, model: 'm2' },
-      { id: 1, correlationId: 'a', durationMs: 20, model: 'm1' }
-    ]
-    const groups = groupEntriesByCorrelation(entries)
-    expect(groups).toHaveLength(2)
-    expect(groups[0]).toMatchObject({ correlationId: 'a', totalDurationMs: 30, models: ['m1'] })
-    expect(groups[0].entries).toHaveLength(2)
-    expect(groups[1].correlationId).toBeNull()
-  })
-
-  it('порожній вхід → порожній список', () => {
-    expect(groupEntriesByCorrelation([])).toEqual([])
-    expect(groupEntriesByCorrelation()).toEqual([])
+  it('зберігає messages/content для перегляду промпту/відповіді кроку', () => {
+    const step = parseChainStep({
+      chainStep: 1,
+      messages: [{ role: 'user', content: 'привіт' }],
+      content: 'відповідь моделі'
+    })
+    expect(step.messages).toEqual([{ role: 'user', content: 'привіт' }])
+    expect(step.content).toBe('відповідь моделі')
+    expect(parseChainStep(null)).toMatchObject({ messages: [], content: null })
+    expect(parseChainStep({ messages: 'не масив' }).messages).toEqual([])
   })
 })
 
-describe('joinStepsWithRequests', () => {
-  const steps = [
-    parseChainStep({ chainStep: 1, model: 'omlx/g', promptHash: 'h1' }),
-    parseChainStep({ chainStep: 2, model: 'openai/gpt', promptHash: 'h2' })
-  ]
-
-  it('primary-джойн за correlationId+chainStep', () => {
-    const joined = joinStepsWithRequests(steps, 'c1', [
-      { correlationId: 'c1', chainStep: 1, durationMs: 42, status: 200 }
-    ])
-    expect(joined[0].request).toMatchObject({ durationMs: 42, status: 200 })
-    expect(joined[0].cloud).toBe(false)
-    expect(joined[1].request).toBeNull()
-    expect(joined[1].cloud).toBe(true)
+describe('isLocalModel', () => {
+  it('провайдер omlx — локальна модель', () => {
+    expect(isLocalModel('omlx/gemma-4-e4b-it')).toBe(true)
   })
 
-  it('fallback за promptHash, без матчу — cloud:true', () => {
-    const joined = joinStepsWithRequests(steps, 'c1', [{ promptHash: 'h1', durationMs: 7 }])
-    expect(joined[0].request).toMatchObject({ durationMs: 7 })
-    expect(joined[1].cloud).toBe(true)
+  it('інший провайдер — cloud', () => {
+    expect(isLocalModel('openai/gpt-5.4-mini')).toBe(false)
+  })
+
+  it('порожнє/невалідне значення — false, не падає', () => {
+    expect(isLocalModel(null)).toBe(false)
+    expect(isLocalModel()).toBe(false)
+    expect(isLocalModel('')).toBe(false)
   })
 })
 

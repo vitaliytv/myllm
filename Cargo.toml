@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["app/src-tauri", "proxy-service"]
+
+# Стрипаємо debug-символи навіть у debug-збірці (той самий підхід, що в myshare) —
+# застосовується до обох крейтів воркспейсу.
+[profile.dev]
+strip = true

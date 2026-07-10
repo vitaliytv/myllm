@@ -1,32 +1,43 @@
-//! Зворотний проксі для `/v1/*` трафіку omlx.
+//! Зворотний проксі для `/v1/*` трафіку omlx + маленький локальний
+//! `/_proxy/*` admin-API (parity з колишнім Tauri UI — без нього самого).
 //!
-//! Admin API (`admin.rs`) дає тільки поточний стан черги — після завершення
-//! запиту текст промпту/відповіді зникає. Щоб бачити повну історію (хто що
-//! питав і що відповів), myllm стає посередником: клієнти (mlmail, myshare,
+//! Admin API upstream-сервера (`admin.rs`) дає тільки поточний стан черги —
+//! після завершення запиту текст промпту/відповіді зникає. Щоб бачити повну
+//! історію (хто що питав і що відповів), клієнти (mlmail, myshare,
 //! `mcp-omlx.mjs`) звертаються на локальний порт цього проксі замість прямого
 //! `:8000`, проксі пересилає запит на справжній omlx один в один і паралельно
 //! стрімить копію в лог — так стрімінг (SSE) не ламається для клієнта, а
 //! історія запитів наповнюється текстом у реальному часі.
+//!
+//! Headless-адаптація колишнього Tauri `proxy.rs`: `ProxyShared.app` (Tauri
+//! AppHandle) замінено на прямий `data_dir: PathBuf`; `proxy_start`/`proxy_stop`
+//! (Tauri-команди з UI-кнопками) зникли — сервіс просто слухає, доки живий
+//! процес (launchd керує рестартом); `omlx-request-logged` Tauri-подія
+//! замінена на `/_proxy/history` (GET/DELETE) — той самий `requests.jsonl`,
+//! просто без push-нотифікації (немає кому її слухати без GUI).
 
-use super::client_info::{self, ClientInfo};
-use super::compress::compress_request_body;
+use crate::admin::{self, AdminState};
+use crate::chain_correlation::extract_correlation;
+use crate::client_info::{self, ClientInfo};
+use crate::compress::compress_request_body;
+use crate::config::Config;
 use axum::{
     body::{Body, Bytes},
     extract::{ConnectInfo, State},
     http::{HeaderMap, HeaderName, Method, StatusCode, Uri},
-    response::{IntoResponse, Response},
-    routing::any,
+    response::{IntoResponse, Json, Response},
+    routing::{any, get, post},
     Router,
 };
 use futures_util::StreamExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     net::SocketAddr,
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -37,8 +48,7 @@ use tokio_stream::wrappers::ReceiverStream;
 /// Скільки символів тексту відповіді зберігаємо в записі — запобіжник проти
 /// того, щоб один величезний non-JSON/non-SSE respose роздув requests.jsonl.
 const MAX_RESPONSE_CHARS: usize = 200_000;
-/// Скільки останніх рядків читаємо з requests.jsonl для початкового
-/// заповнення історії при відкритті вікна.
+/// Скільки останніх рядків читаємо з requests.jsonl для `/_proxy/history`.
 const DEFAULT_HISTORY_LIMIT: usize = 200;
 
 #[derive(Debug, Error)]
@@ -47,10 +57,6 @@ pub enum ProxyError {
     Io(#[from] std::io::Error),
     #[error("failed to bind {0}: {1}")]
     Bind(String, std::io::Error),
-    #[error("proxy is not running")]
-    NotRunning,
-    #[error("could not resolve app data dir: {0}")]
-    AppData(String),
 }
 
 impl From<ProxyError> for String {
@@ -81,7 +87,7 @@ pub struct RequestLogEntry {
     /// також коли запит просто не підпадав під формат (tool-calls,
     /// response_format, не chat-completions) — компресія свідомо пропущена.
     pub prompt_compressed: bool,
-    /// Кореляція з ланцюжками @nitra/llm-lib (заголовок `x-chain-id`).
+    /// Кореляція з ланцюжками `@7n/llm-lib` (заголовок `x-chain-id`).
     /// `skip_serializing_if` — старі/некорельовані записи без null-шуму.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub correlation_id: Option<String>,
@@ -96,132 +102,139 @@ pub struct RequestLogEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chain_cwd: Option<String>,
     /// Fallback-джойн із trace llm-lib: sha256 hex16 останнього user-повідомлення
-    /// (контракт у `chains.rs`).
+    /// (контракт у `chain_correlation.rs`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_hash: Option<String>,
 }
 
-struct ProxyShared {
+/// Спільний стан для всіх axum-хендлерів (proxy-форвард + `/_proxy/*` admin).
+pub struct AppState {
     client: reqwest::Client,
     upstream_base_url: String,
     log_path: PathBuf,
-    app: tauri::AppHandle,
     next_id: AtomicU64,
     /// Фактичний порт, на якому слухає проксі — потрібен для резолву
     /// процесу-клієнта за парою портів TCP-з'єднання.
     port: u16,
+    admin: AdminState,
 }
 
-/// Хендл живого проксі-таска — зберігається у Tauri-стані, щоб `proxy_stop`
-/// міг його перервати.
-pub struct ProxyRuntime(pub Mutex<Option<tokio::task::JoinHandle<()>>>);
+/// Піднімає TCP-listener і повертає готовий до `axum::serve` router разом із
+/// фактичним портом (може відрізнятись від запитаного, якщо `config.port`
+/// зайнятий і осі вибрано `0` — тут завжди точний порт, `bind` падає, якщо він
+/// зайнятий, щоб не мовчки слухати не той порт).
+pub async fn bind(config: &Config) -> Result<(u16, TcpListener, Router, Arc<AppState>), ProxyError> {
+    std::fs::create_dir_all(&config.data_dir)?;
+    let log_path = config.data_dir.join("requests.jsonl");
 
-impl Default for ProxyRuntime {
-    fn default() -> Self {
-        Self(Mutex::new(None))
-    }
-}
-
-#[tauri::command]
-pub async fn proxy_start(
-    upstream_base_url: String,
-    port: u16,
-    app: tauri::AppHandle,
-    runtime: tauri::State<'_, ProxyRuntime>,
-) -> Result<u16, String> {
-    let (actual_port, handle) = start_inner(upstream_base_url, port, app).await?;
-    *runtime.0.lock().unwrap() = Some(handle);
-    Ok(actual_port)
-}
-
-async fn start_inner(
-    upstream_base_url: String,
-    port: u16,
-    app: tauri::AppHandle,
-) -> Result<(u16, tokio::task::JoinHandle<()>), ProxyError> {
-    use tauri::Manager;
-
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| ProxyError::AppData(e.to_string()))?;
-    tokio::fs::create_dir_all(&data_dir).await?;
-    let log_path = data_dir.join("requests.jsonl");
-
-    let addr = format!("127.0.0.1:{port}");
+    let addr = format!("127.0.0.1:{}", config.port);
     let listener = TcpListener::bind(&addr)
         .await
         .map_err(|e| ProxyError::Bind(addr, e))?;
     let actual_port = listener.local_addr()?.port();
 
-    let shared = Arc::new(ProxyShared {
+    let state = Arc::new(AppState {
         client: reqwest::Client::new(),
-        upstream_base_url,
+        upstream_base_url: config.upstream_base_url.clone(),
         log_path,
-        app,
         next_id: AtomicU64::new(0),
         port: actual_port,
+        admin: AdminState::default(),
     });
 
     let router = Router::new()
-        .fallback(any(proxy_handler))
-        .with_state(shared);
-
-    let handle = tokio::spawn(async move {
-        // with_connect_info дає хендлеру peer-адресу клієнта — з її порту
-        // резолвиться процес, який зробив запит.
-        let _ = axum::serve(
-            listener,
-            router.into_make_service_with_connect_info::<SocketAddr>(),
+        .route(
+            "/_proxy/history",
+            get(history_handler).delete(clear_history_handler),
         )
-        .await;
-    });
+        .route("/_proxy/admin/connect", post(admin_connect_handler))
+        .route("/_proxy/admin/stats", get(admin_stats_handler))
+        .route(
+            "/_proxy/admin/global-settings",
+            get(admin_global_settings_handler),
+        )
+        .fallback(any(proxy_handler))
+        .with_state(state.clone());
 
-    Ok((actual_port, handle))
+    Ok((actual_port, listener, router, state))
 }
 
-#[tauri::command]
-pub fn proxy_stop(runtime: tauri::State<'_, ProxyRuntime>) -> Result<(), String> {
-    let mut guard = runtime.0.lock().unwrap();
-    match guard.take() {
-        Some(handle) => {
-            handle.abort();
-            Ok(())
-        }
-        None => Err(ProxyError::NotRunning.into()),
+/// Best-effort admin-логін при старті, якщо `config.api_key` заданий (env
+/// `OMLX_API_KEY`) — той самий UX, що колишній Tauri UI мав через
+/// "Підключити": одразу піднята сесія, без ручного виклику
+/// `/_proxy/admin/connect`. Помилка логіну НЕ валить сервіс — форвардинг
+/// трафіку не залежить від admin-сесії.
+pub async fn maybe_auto_connect_admin(config: &Config, state: &Arc<AppState>) {
+    let Some(api_key) = &config.api_key else {
+        return;
+    };
+    match admin::connect(&config.upstream_base_url, api_key).await {
+        Ok(session) => *state.admin.0.lock().unwrap() = Some(session),
+        Err(e) => eprintln!("[myllm-proxy-service] admin auto-connect failed: {e}"),
     }
 }
 
-#[tauri::command]
-pub async fn proxy_history(
+async fn history_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<HistoryQuery>,
+) -> Result<Json<Vec<Value>>, (StatusCode, String)> {
+    let limit = params.limit.unwrap_or(DEFAULT_HISTORY_LIMIT);
+    read_tail_entries(&state.log_path, limit)
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
+#[derive(Deserialize)]
+struct HistoryQuery {
     limit: Option<usize>,
-    app: tauri::AppHandle,
-) -> Result<Vec<Value>, String> {
-    use tauri::Manager;
-
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| ProxyError::AppData(e.to_string()))?;
-    let log_path = data_dir.join("requests.jsonl");
-    let limit = limit.unwrap_or(DEFAULT_HISTORY_LIMIT);
-    Ok(read_tail_entries(&log_path, limit).await?)
 }
 
-#[tauri::command]
-pub async fn proxy_clear_history(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri::Manager;
-
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| ProxyError::AppData(e.to_string()))?;
-    let log_path = data_dir.join("requests.jsonl");
-    match tokio::fs::remove_file(&log_path).await {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(ProxyError::from(e).into()),
+async fn clear_history_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    match tokio::fs::remove_file(&state.log_path).await {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(StatusCode::NO_CONTENT),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
+}
+
+#[derive(Deserialize)]
+struct ConnectBody {
+    base_url: String,
+    api_key: String,
+}
+
+async fn admin_connect_handler(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<ConnectBody>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    match admin::connect(&body.base_url, &body.api_key).await {
+        Ok(session) => {
+            *state.admin.0.lock().unwrap() = Some(session);
+            Ok(StatusCode::NO_CONTENT)
+        }
+        Err(e) => Err((StatusCode::BAD_GATEWAY, e.to_string())),
+    }
+}
+
+async fn admin_stats_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    admin::stats(&state.admin)
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_GATEWAY, e.to_string()))
+}
+
+async fn admin_global_settings_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    admin::global_settings(&state.admin)
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_GATEWAY, e.to_string()))
 }
 
 async fn read_tail_entries(log_path: &PathBuf, limit: usize) -> Result<Vec<Value>, ProxyError> {
@@ -264,7 +277,7 @@ fn redact_headers(headers: &HeaderMap) -> Value {
 }
 
 async fn proxy_handler(
-    State(shared): State<Arc<ProxyShared>>,
+    State(shared): State<Arc<AppState>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     method: Method,
     uri: Uri,
@@ -295,7 +308,7 @@ async fn proxy_handler(
     let request_headers = redact_headers(&headers);
     // Кореляція з ланцюжками llm-lib: x-chain-* заголовки + prompt_hash з
     // ОРИГІНАЛЬНОГО тіла (до компресії — клієнт хешує те, що надіслав).
-    let correlation = super::chains::extract_correlation(&headers, request_body.as_ref());
+    let correlation = extract_correlation(&headers, request_body.as_ref());
 
     // Компресуємо тіло, що йде на upstream, окремо від `request_body`, який
     // лишається оригіналом для логу історії — так видно і що прислав
@@ -339,8 +352,7 @@ async fn proxy_handler(
 
     // Стрімимо тіло клієнту чанк-за-чанком через канал, і одночасно
     // накопичуємо копію байтів. Коли upstream-потік завершується, фіналізуємо
-    // запис історії (файл + push-подія) — так довгий SSE не блокує клієнта,
-    // а лог з'являється одразу, як тільки відповідь дійшла до кінця.
+    // запис історії, коли довгий SSE не блокує клієнта.
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
     let shared_for_task = shared.clone();
     let request_body_for_task = request_body.clone();
@@ -401,9 +413,7 @@ async fn proxy_handler(
     response
 }
 
-async fn finalize_entry(shared: &ProxyShared, entry: RequestLogEntry) {
-    use tauri::Emitter;
-
+async fn finalize_entry(shared: &AppState, entry: RequestLogEntry) {
     if let Ok(line) = serde_json::to_string(&entry) {
         if let Ok(mut file) = tokio::fs::OpenOptions::new()
             .create(true)
@@ -416,7 +426,6 @@ async fn finalize_entry(shared: &ProxyShared, entry: RequestLogEntry) {
             let _ = file.write_all(b"\n").await;
         }
     }
-    let _ = shared.app.emit("omlx-request-logged", &entry);
 }
 
 /// Витягує читабельний текст відповіді з тіла: SSE (`text/event-stream`)
@@ -562,32 +571,33 @@ mod tests {
             .await;
 
         let dir = tempfile::tempdir().unwrap();
-        // finalize_entry writes via a real AppHandle in production; here we
-        // exercise the pure pieces (request/response shuttling + extraction)
-        // through the axum router directly, bypassing Tauri wiring.
-        let shared = Arc::new(TestShared {
-            client: reqwest::Client::new(),
+        let config = Config {
             upstream_base_url: upstream.url(),
-            log_path: dir.path().join("requests.jsonl"),
+            port: 0,
+            api_key: None,
+            data_dir: dir.path().to_path_buf(),
+        };
+        let (_port, listener, router, _state) = bind(&config).await.unwrap();
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(
+                listener,
+                router.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await;
         });
 
-        let body = Bytes::from(r#"{"model":"gemma","messages":[{"role":"user","content":"hi"}]}"#);
-        let upstream_req = shared
-            .client
-            .post(format!("{}/v1/chat/completions", shared.upstream_base_url))
-            .body(body);
-        let resp = upstream_req.send().await.unwrap();
+        let client = reqwest::Client::new();
+        let bound_port = _port;
+        let resp = client
+            .post(format!("http://127.0.0.1:{bound_port}/v1/chat/completions"))
+            .body(r#"{"model":"gemma","messages":[{"role":"user","content":"hi"}]}"#)
+            .send()
+            .await
+            .unwrap();
         assert!(resp.status().is_success());
         let text = resp.text().await.unwrap();
-        assert_eq!(extract_json_text(&text), Some("hi there".to_string()));
-    }
+        assert!(text.contains("hi there"));
 
-    /// Мінімальна тестова заміна `ProxyShared` без залежності від живого
-    /// `tauri::AppHandle` (його не піднімеш у юніт-тесті).
-    struct TestShared {
-        client: reqwest::Client,
-        upstream_base_url: String,
-        #[allow(dead_code)]
-        log_path: PathBuf,
+        server.abort();
     }
 }

@@ -1,7 +1,23 @@
 // Чисті функції для вкладки «Ланцюжки»: парсинг chain-записів глобального
-// trace @nitra/llm-lib, групування request-логу за correlationId, джойн кроків
-// ланцюжка з локальними запитами проксі та агрегати для аналітики
-// (escalation-rate, T0-кандидати). Поза composable — тестуються без Tauri.
+// trace @7n/llm-lib, джойн кроків ланцюжка з opt-in body-capture та агрегати
+// для аналітики (escalation-rate, T0-кандидати). Поза composable — тестуються
+// без Tauri.
+
+/** Провайдери, що вважаються локальними — дзеркало llm-lib model-tiers.mjs (дефолт `omlx`). */
+const LOCAL_PROVIDERS = new Set(['omlx'])
+
+/**
+ * Чи model-spec вказує на локальну модель (за префіксом провайдера
+ * `provider/model-id`) — легкий UI-еквівалент `@7n/llm-lib/model-tiers`'
+ * `isLocalModel`, без залежності від env-контракту (лише для відображення).
+ * @param {string|null|undefined} spec `"provider/model-id"`
+ * @returns {boolean} true — локальна модель
+ */
+export function isLocalModel(spec) {
+  if (typeof spec !== 'string' || !spec) return false
+  const provider = spec.split('/', 1)[0]
+  return LOCAL_PROVIDERS.has(provider)
+}
 
 /**
  * Нормалізує фінальний запис ланцюжка (`kind:'chain'`) у view-модель.
@@ -44,65 +60,21 @@ export function parseChainStep(raw) {
     usage: raw?.usage ?? null,
     stopReason: raw?.stopReason ?? null,
     promptHash: raw?.promptHash ?? null,
-    error: raw?.error ?? null
+    error: raw?.error ?? null,
+    // Trace-запис несе повний (можливо стиснутий клієнтом) промпт/відповідь —
+    // primary джерело для перегляду «що питали / що відповіла модель» у UI,
+    // доки body-capture (opt-in, нестиснуте) недоступне для цього кроку.
+    messages: Array.isArray(raw?.messages) ? raw.messages : [],
+    content: raw?.content ?? null
   }
-}
-
-/**
- * Групує записи request-логу за `correlationId`; записи без нього — групи
- * розміру 1. Порядок збережено (група якориться на найновішому записі).
- * @param {Array<object>} entries записи історії (новіші зверху)
- * @returns {Array<{correlationId: string|null, chainKind: string|null, entries: Array<object>, totalDurationMs: number, models: string[]}>} групи
- */
-export function groupEntriesByCorrelation(entries) {
-  const groups = []
-  const byId = new Map()
-  for (const entry of entries ?? []) {
-    const id = entry?.correlationId ?? null
-    if (!id) {
-      groups.push({ correlationId: null, chainKind: null, entries: [entry], totalDurationMs: entry?.durationMs ?? 0, models: entry?.model ? [entry.model] : [] })
-      continue
-    }
-    let group = byId.get(id)
-    if (!group) {
-      group = { correlationId: id, chainKind: entry?.chainKind ?? null, entries: [], totalDurationMs: 0, models: [] }
-      byId.set(id, group)
-      groups.push(group)
-    }
-    group.entries.push(entry)
-    group.totalDurationMs += entry?.durationMs ?? 0
-    if (entry?.model && !group.models.includes(entry.model)) group.models.push(entry.model)
-  }
-  return groups
-}
-
-/**
- * Джойнить кроки ланцюжка з локальними записами проксі: primary —
- * correlationId+chainStep, fallback — promptHash. Cloud-кроки myllm не
- * бачить — позначаються `cloud:true` без request-даних.
- * @param {Array<object>} steps нормалізовані кроки (parseChainStep)
- * @param {string} chainId id ланцюжка
- * @param {Array<object>} requestEntries записи історії проксі
- * @returns {Array<object>} кроки з приєднаним `request` (або null)
- */
-export function joinStepsWithRequests(steps, chainId, requestEntries) {
-  const entries = requestEntries ?? []
-  return (steps ?? []).map(step => {
-    const byId = entries.find(e => e?.correlationId === chainId && e?.chainStep === step.chainStep)
-    const byHash = byId ?? (step.promptHash ? entries.find(e => e?.promptHash === step.promptHash) : null)
-    const request = byHash
-      ? { durationMs: byHash.durationMs ?? 0, status: byHash.status ?? null, promptCompressed: byHash.promptCompressed ?? false }
-      : null
-    return { ...step, request, cloud: !request }
-  })
 }
 
 /**
  * Приєднує повні тіла (prompt/response) opt-in body-capture стору llm-lib
  * (`read_body_capture`) до кроків — primary `chainStep`, fallback
- * `promptHash`. На відміну від `joinStepsWithRequests` (лише local через
- * проксі), працює й для CLOUD-кроків — body-capture пише для обох.
- * @param {Array<object>} steps кроки (опційно вже після joinStepsWithRequests)
+ * `promptHash`. Незалежний від локального проксі (він тепер живе окремо,
+ * `myllm-proxy-service`) — body-capture пише і для local, і для cloud.
+ * @param {Array<object>} steps нормалізовані кроки (parseChainStep)
  * @param {Array<object>} bodies записи body-capture стору (read_body_capture)
  * @returns {Array<object>} кроки з приєднаним `body` (`{prompt, output}` або null)
  */
