@@ -136,6 +136,31 @@ pub async fn read_body_capture(app: tauri::AppHandle, chain_id: String) -> Resul
     Ok(read_body_capture_dir(&bodies_dir(&app).join(&chain_id)).await)
 }
 
+// ─── Очистка trace (кнопка «Очистити» вкладки «Ланцюжки») ───
+
+/// Трункейтить trace-файл і видаляє body-capture стор. Відсутні шляхи — не
+/// помилка (trace ще не писався). Файл саме трункейтиться, а не видаляється:
+/// у нього паралельно дописують клієнти llm-lib.
+async fn clear_trace_files(trace: &Path, bodies: &Path) -> Result<(), String> {
+    match fs::OpenOptions::new().write(true).truncate(true).open(trace).await {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.to_string()),
+    }
+    match fs::remove_dir_all(bodies).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Очищає дані вкладки «Ланцюжки»: `llm-trace.jsonl` + body-capture стор.
+/// Збережені аналізи (insights + індекс) не чіпає.
+#[tauri::command]
+pub async fn chains_clear_trace(app: tauri::AppHandle) -> Result<(), String> {
+    clear_trace_files(&trace_path(&app), &bodies_dir(&app)).await
+}
+
 // ─── Збереження результатів chain-аналізу (вкладка «Ланцюжки» → «Аналіз») ───
 
 /// Корінь insights-стору: `~/.n-cursor/insights/` — глобальний cross-project
@@ -277,6 +302,30 @@ mod tests {
         let records = read_trace_tail(&path, 1024).await;
         assert!(!records.is_empty());
         assert!(records.len() < 1000);
+    }
+
+    #[tokio::test]
+    async fn clear_trace_files_truncates_trace_and_removes_bodies() {
+        let dir = tempfile::tempdir().unwrap();
+        let trace = dir.path().join("trace.jsonl");
+        let bodies = dir.path().join("bodies");
+        std::fs::write(&trace, "{\"kind\":\"chain\"}\n").unwrap();
+        std::fs::create_dir_all(bodies.join("c1")).unwrap();
+        std::fs::write(bodies.join("c1").join("1.json"), "{}").unwrap();
+
+        clear_trace_files(&trace, &bodies).await.unwrap();
+
+        // Файл лишився (у нього дописують клієнти), але порожній; стор тіл зник.
+        assert_eq!(std::fs::metadata(&trace).unwrap().len(), 0);
+        assert!(!bodies.exists());
+    }
+
+    #[tokio::test]
+    async fn clear_trace_files_missing_paths_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        clear_trace_files(&dir.path().join("немає.jsonl"), &dir.path().join("немає-dir"))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

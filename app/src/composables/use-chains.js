@@ -55,6 +55,20 @@ export function useChains() {
     return steps
   }
 
+  /**
+   * Очищає trace ланцюжків (Rust трункейтить `llm-trace.jsonl` і видаляє
+   * body-capture стор; збережені аналізи лишаються) та перезавантажує список.
+   */
+  async function clear() {
+    errorMessage.value = ''
+    try {
+      await invoke('chains_clear_trace')
+    } catch (error) {
+      errorMessage.value = String(error?.message ?? error)
+    }
+    await load()
+  }
+
   /** Індекс збережених аналізів (бейджі «має аналіз»). */
   async function loadAnalyses() {
     try {
@@ -69,5 +83,5 @@ export function useChains() {
     await loadAnalyses()
   })
 
-  return { chains, analyses, error: errorMessage, load, loadSteps, loadAnalyses, loadBodies }
+  return { chains, analyses, error: errorMessage, load, loadSteps, loadAnalyses, loadBodies, clear }
 }
