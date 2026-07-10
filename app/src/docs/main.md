@@ -1,14 +1,14 @@
 ---
+type: JS Module
+title: main.js
+resource: app/src/main.js
 docgen:
-  source: app/src/main.js
-  crc: 98f559fc
+  crc: 43f757b8
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   issues: judge:inaccurate:0.92
   judgeModel: openai-codex/gpt-5.4-mini
 ---
-
-# main.js
 
 ## Огляд
 

@@ -70,6 +70,46 @@ export function parseChainStep(raw) {
 }
 
 /**
+ * Підпис проблеми ланцюжка з `extra.problem` (конвенція producer-а, див.
+ * llm-lib chain.mjs): скільки порушень, які reasons, приклад повідомлення.
+ * @param {object|null|undefined} extra extra фінального chain-запису
+ * @returns {string} людиночитний підпис або '' якщо проблему не зафіксовано
+ */
+export function chainProblemLabel(extra) {
+  const p = extra?.problem
+  if (!p) return ''
+  const parts = [`${p.violations} порушень`]
+  if (Array.isArray(p.reasons) && p.reasons.length > 0) parts.push(p.reasons.join(', '))
+  if (p.sample) parts.push(p.sample)
+  return parts.join(' · ')
+}
+
+/**
+ * Підпис «хто закрив» з `extra.resolvedBy`: 'T0' для детермінованого патерну
+ * (без LLM), інакше `tier:model` closing rung-а.
+ * @param {object|null|undefined} extra extra фінального chain-запису
+ * @returns {string} 'T0' | 'tier:model' | '' якщо ланцюжок не закрито
+ */
+export function chainResolutionLabel(extra) {
+  const by = extra?.resolvedBy
+  if (!by) return ''
+  return by === 't0' ? 'T0' : by
+}
+
+/**
+ * Підпис змінених файлів з `extra.touchedFiles` (cwd-relative, producer капить
+ * список; `touchedTotal` несе повну кількість — хвіст показуємо як `+N`).
+ * @param {object|null|undefined} extra extra фінального chain-запису
+ * @returns {string} 'a.js, b.js (+3)' або '' якщо змін не зафіксовано
+ */
+export function chainTouchedFilesLabel(extra) {
+  const files = Array.isArray(extra?.touchedFiles) ? extra.touchedFiles : []
+  if (files.length === 0) return ''
+  const more = (extra.touchedTotal ?? files.length) - files.length
+  return files.join(', ') + (more > 0 ? ` (+${more})` : '')
+}
+
+/**
  * Приєднує повні тіла (prompt/response) opt-in body-capture стору llm-lib
  * (`read_body_capture`) до кроків — primary `chainStep`, fallback
  * `promptHash`. Незалежний від локального проксі (він тепер живе окремо,

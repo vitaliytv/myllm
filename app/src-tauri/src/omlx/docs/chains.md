@@ -1,14 +1,14 @@
 ---
+type: Rust Module
+title: chains.rs
+resource: app/src-tauri/src/omlx/chains.rs
 docgen:
-  source: app/src-tauri/src/omlx/chains.rs
-  crc: 705f4de3
+  crc: bb2aac81
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   issues: judge:inaccurate:0.99
   judgeModel: openai-codex/gpt-5.4-mini
 ---
-
-# chains.rs
 
 ## Огляд
 

@@ -110,3 +110,37 @@ jobs:
           projectPath: app
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target universal-apple-darwin
+
+  build-proxy-service:
+    needs: create-release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build universal binary
+        run: |
+          cargo build --release -p myllm-proxy-service --target aarch64-apple-darwin
+          cargo build --release -p myllm-proxy-service --target x86_64-apple-darwin
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create target/aarch64-apple-darwin/release/myllm-proxy-service target/x86_64-apple-darwin/release/myllm-proxy-service -output target/universal-apple-darwin/release/myllm-proxy-service
+
+      - name: Package
+        run: |
+          cd target/universal-apple-darwin/release
+          tar -czf myllm-proxy-service-universal-apple-darwin.tar.gz myllm-proxy-service
+
+      - name: Upload release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" target/universal-apple-darwin/release/myllm-proxy-service-universal-apple-darwin.tar.gz --repo "${{ github.repository }}" --clobber

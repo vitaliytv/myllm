@@ -1,13 +1,13 @@
 ---
+type: JS Module
+title: chains.js
+resource: app/src/services/chains.js
 docgen:
-  source: app/src/services/chains.js
-  crc: 4a336be9
+  crc: 180dd635
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   judgeModel: openai-codex/gpt-5.4-mini
 ---
-
-# chains.js
 
 ## Огляд
 

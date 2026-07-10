@@ -1,14 +1,14 @@
 ---
+type: JS Module
+title: use-chains.js
+resource: app/src/composables/use-chains.js
 docgen:
-  source: app/src/composables/use-chains.js
-  crc: a916839a
+  crc: ed895345
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 90
   issues: internal-name:loadBodies,judge:inaccurate:0.98
   judgeModel: openai-codex/gpt-5.4-mini
 ---
-
-# use-chains.js
 
 ## Огляд
 
