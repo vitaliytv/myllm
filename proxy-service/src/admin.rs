@@ -91,7 +91,12 @@ async fn get_json(session: &Session, path: &str) -> Result<Value, AdminError> {
 /// Клонує сесію з-під lock'а і одразу відпускає його — тримати `MutexGuard`
 /// через `.await` небезпечно (не `Send`-friendly для async-хендлерів).
 pub fn current_session(state: &AdminState) -> Result<Session, AdminError> {
-    state.0.lock().unwrap().clone().ok_or(AdminError::NotConnected)
+    state
+        .0
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or(AdminError::NotConnected)
 }
 
 pub async fn stats(state: &AdminState) -> Result<Value, AdminError> {
