@@ -16,6 +16,8 @@ const chain = (over = {}) => parseChainRecord({
   ...over
 })
 
+const mk = (id, unit, over = {}) => chain({ chainId: id, unit, ...over })
+
 describe('parseChainRecord/parseChainStep', () => {
   it('повний запис нормалізується, мінімальний отримує дефолти', () => {
     expect(chain().chainKind).toBe('fix-concern')
@@ -94,7 +96,6 @@ describe('chainAggregates', () => {
   })
 
   it('alwaysEscalatedUnits: поріг ≥3, 100% escalated/cloudOnly, сорт за cloudTokens', () => {
-    const mk = (id, unit, over = {}) => chain({ chainId: id, unit, ...over })
     const { alwaysEscalatedUnits } = chainAggregates([
       mk('a1', 'ga/pins'), mk('a2', 'ga/pins'), mk('a3', 'ga/pins'),
       mk('b1', 'js/x'), mk('b2', 'js/x'), mk('b3', 'js/x', { escalated: false, cloudCalls: 0, localCalls: 1, usageCloud: { totalTokens: 0 } }),
