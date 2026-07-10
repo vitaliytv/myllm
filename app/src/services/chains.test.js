@@ -78,7 +78,7 @@ describe('підписи шапки ланцюжка (extra-конвенція p
     expect(chainResolutionLabel({ resolvedBy: 't0' })).toBe('T0')
     expect(chainResolutionLabel({ resolvedBy: 'cloud-min:openai/gpt-5.4-mini' })).toBe('cloud-min:openai/gpt-5.4-mini')
     expect(chainResolutionLabel({})).toBe('')
-    expect(chainResolutionLabel(undefined)).toBe('')
+    expect(chainResolutionLabel()).toBe('')
   })
 
   it('chainTouchedFilesLabel: список + хвіст (+N) з touchedTotal', () => {
