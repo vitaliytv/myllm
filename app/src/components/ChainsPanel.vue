@@ -298,6 +298,6 @@ defineExpose({ reload })
 }
 
 .step-row:hover {
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  background: color-mix(in srgb, currentcolor 6%, transparent);
 }
 </style>

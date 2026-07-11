@@ -2,10 +2,88 @@
 description: Tauri
 globs: "**/src-tauri/**,**/tauri.conf.json"
 alwaysApply: false
-version: '1.7'
+version: '1.8'
 ---
 
-Правило встановлює канонічні вимоги для Tauri-проєктів: виявлення маркерів у монорепо, VS Code-розширення, налаштування mutation-testing для platform bridge, компіляційну ізоляцію agent/LLM-логіки від app-shell, реалізацію Tool Surface поверх Tauri+Rust, реліз-flow через change-файли (тег → DMG/updater-артефакти) та автооновлення через спільний `useUpdater()` з `@7n/tauri-components`.
+Правило встановлює канонічні вимоги для Tauri-проєктів: виявлення маркерів у монорепо, VS Code-розширення, налаштування mutation-testing для platform bridge, компіляційну ізоляцію agent/LLM-логіки від app-shell, реалізацію Tool Surface поверх Tauri+Rust, реліз-flow через change-файли (тег → DMG/updater-артефакти), автооновлення через спільний `useUpdater()` з `@7n/tauri-components` та верифікацію застосунку LLM-агентом через `tauri-plugin-mcp-bridge`.
+
+## Верифікація LLM-агентом через MCP-міст (замість скриншотів)
+
+Якщо над Tauri-застосунком працює LLM-агент (Claude Code, Cursor тощо), він
+верифікує зміни **програмно** — деревом доступності DOM, кліками за `ref`,
+прямими викликами Rust-команд — а не лише скриншотами. Це забезпечує
+`tauri-plugin-mcp-bridge`: debug-плагін, що піднімає WS-сервер моста
+всередині застосунку, до якого зовні підключається MCP-сервер tauri.
+(Не плутати з **Tool Surface** — `tool-surface.mdc`: той про production
+call surface для UI/оркестратора/LLM, цей — про dev-time верифікацію
+запущеного застосунку.)
+
+### Dev-setup
+
+`src-tauri/Cargo.toml`:
+
+```toml
+[dependencies]
+tauri-plugin-mcp-bridge = "0.11"
+```
+
+Реєстрація плагіна — **лише в debug-збірці** (у release-збірці моста немає):
+
+```rust
+let builder = tauri::Builder::default();
+#[cfg(debug_assertions)]
+let builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+```
+
+WS-сервер моста слухає `0.0.0.0:9223`.
+
+`tauri.conf.json` → `app.withGlobalTauri: true` — **обовʼязково**:
+
+```json title="src-tauri/tauri.conf.json"
+{
+  "app": {
+    "withGlobalTauri": true
+  }
+}
+```
+
+Без `withGlobalTauri` fallback-канал `execute_js` не має як повернути результат — будь-який
+async-скрипт (з `await`/`.then(`/`Promise.`, див. евристику нижче) впаде через
+5с у `Script execution timeout`. `withGlobalTauri` відкриває Tauri API всьому
+JS у webview — прийнятно, бо capabilities однаково обмежують surface;
+проєкти зі стороннім/untrusted контентом у webview мають зважити це окремо.
+
+### Цикл верифікації
+
+Замість скриншотів — послідовність MCP-викликів:
+
+1. `driver_session start` — підключення до моста вже запущеного застосунку (`tauri dev`).
+2. `webview_dom_snapshot type=accessibility` — YAML-дерево з `ref=eN` для кожного елемента.
+3. `webview_interact` — клік/ввід за `ref` з кроку 2.
+4. `webview_execute_js` з `await window.__TAURI__.core.invoke('<команда>', {…})` —
+   пряма звірка бекенд-стану повз UI (Rust-команда, не рендер).
+5. `read_logs source=console` — перевірка консольних помилок/попереджень.
+
+Скриншот — лише щоб показати результат людині, не джерело правди для агента:
+native-скриншот моста не відображає portal-оверлеї (нижче).
+
+### Відомі обмеження моста 0.11.x
+
+- **`ipc_execute_command` не реалізований** — WS-сервер моста дозволяє лише
+  внутрішні команди `plugin:mcp-bridge|*`. Виклик команд застосунку — тільки
+  через `webview_execute_js` + `invoke`, не напряму через `ipc_execute_command`.
+- **`ipc_monitor` перехоплює лише виклики через глобал `window.__TAURI__`.**
+  Стандартний `import { invoke } from '@tauri-apps/api/core'` іде через
+  `__TAURI_INTERNALS__` і в перехоплення не потрапляє.
+- **Евристика native-eval відкидає async-скрипти** — за підрядками `await`,
+  `.then(`, `Promise.` скрипт іде у fallback-канал `execute_js`; без
+  `withGlobalTauri` (вище) fallback не має як повернути результат, і
+  async-скрипт для агента взагалі недоступний.
+- **Native-скриншот не захоплює Quasar/portal-оверлеї** (діалоги, меню) — вони
+  рендеряться поза основним деревом. Перевіряй їх стан через DOM
+  (`document.querySelector('.q-dialog')`), не через скриншот.
+
+Перевірено вживу на проєкті myllm, `tauri-plugin-mcp-bridge` 0.11.2, macOS.
 
 ## Mutation-testing: семантика app shell та platform bridge
 
@@ -91,6 +169,25 @@ LLM-залежністю — Tauri-проєкти без LLM/agent-логіки 
 **Не автофіксується:** виділення crate, перенесення коду і написання fake-провайдера потребують
 людського розсуду — детектор лише репортує з посиланням на це правило.
 
+## Системні залежності Tauri (Linux) у `lint-rust.yml`
+
+Clippy (`cargo clippy --all-targets --all-features`) компілює весь граф залежностей, включно з build-скриптами `-sys`-крейтів (`webkit2gtk-sys`, `gtk-sys`, `libappindicator-sys`). Ці build-скрипти шукають системні `.pc`-файли через pkg-config, тож на `ubuntu-latest` без dev-пакетів крок Clippy падає ще на збірці залежностей. Rustfmt нічого не компілює — вимога стосується саме Clippy.
+
+Правило активується, якщо хоч у одному workspace-пакеті є `src-tauri/Cargo.toml` (Rust-крейт Tauri, який CI компілює). Тоді `.github/workflows/lint-rust.yml` повинен містити крок встановлення системних залежностей:
+
+```yaml
+- name: Системні залежності Tauri (Linux)
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+Канонічні пакети (Tauri v2): `libwebkit2gtk-4.1-dev` (WebView), `libayatana-appindicator3-dev` (tray), `librsvg2-dev` (іконки). Перевірка — підмножина: додаткові пакети в `apt-get install` дозволені.
+
+Автофікс (T0): якщо apt-кроку немає — вставляє канонічний блок перед `dtolnay/rust-toolchain@…`; якщо крок є, але бракує пакетів — дописує відсутні в наявний `apt-get install`-рядок.
+
+Існування самого `lint-rust.yml` і решту канону файла перевіряє `rust.lint_rust_yml` (rust.mdc) — тут лише Tauri-специфічний apt-крок. Перевірювана логіка — у `main.mjs`/`fix-linux_deps.mjs` цього концерну.
+
 ## Реліз-flow: change-файли → тег → DMG/updater-артефакти
 
 Версія Tauri-застосунку — **єдина**, керується change-файлами за конвенцією `n-changelog.mdc`. Ручні v-теги і ручний bump `version` у `tauri.conf.json`/`package.json` **заборонені**: у CI версію проставляє `npx @nitra/cursor release`, а release-build синхронізує її з тегу (нижче).
@@ -118,13 +215,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
+      - name: Configure git identity + push auth
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
       - run: npx @nitra/cursor release
       # якщо HEAD став release:* — прочитати нову версію з app/package.json,
       # тегнути app@$VER і v$VER, запушити, тоді dispatch release.yml
 ```
 
-- `paths: [app/.changes/**]` (шлях підставляється під реальний workspace, де лежить `src-tauri`) — тригер лише на change-файли, не на будь-який push у `main`.
+- `paths: [app/.changes/**]` (шлях підставляється під реальний workspace, де лежить `src-tauri`) — тригер лише на change-файли, не на будь-який push у `main`. **У `<app>/.changes/` має жити tracked `.gitkeep`**: реліз споживає всі change-файли, і без нього glob перестає матчити tracked-файли — ga/workflows (`unmatched-paths-glob`) червоніє.
+- **Push-auth обовʼязковий**: `persist-credentials: false` — ga-канон (і дефолт `checkout@v6`), тож без явного `git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@…"` push із `n-cursor release` мовчки відхиляється, а тихий git-раннер маскує причину («git push не вдався після 5 спроб (non-fast-forward?)»).
 - `if: "!startsWith(github.event.head_commit.message, 'release:')"` — страховка від циклу: коміт `release:*` теж матче `paths` (він видаляє change-файли), тому job має пропускати сам себе.
 - `permissions: {contents: write, actions: write}` — `actions: write` потрібен для останнього кроку.
 - Після успішного `npx @nitra/cursor release` (детектується за `git log -1 --pretty=%s` що починається з `release:`) — тегнути `app@$VER` і `v$VER`, запушити обидва.
@@ -152,7 +256,9 @@ jobs:
       contents: write
       id-token: write # OIDC для Infisical
     steps:
-      # ... checkout, rust-toolchain, Swatinem/rust-cache@v2 (rust.mdc)
+      # ... checkout, rust-toolchain, потім (rust.mdc вимагає кеш, zizmor фейлить
+      # cache-poisoning у тег-тригереному release — прийнятий ризик приглушуємо inline):
+      - uses: Swatinem/rust-cache@v2 # zizmor: ignore[cache-poisoning]
       - name: Sync app version from tag
         run: |
           VER="${GITHUB_REF_NAME#v}"

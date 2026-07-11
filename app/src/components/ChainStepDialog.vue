@@ -137,7 +137,7 @@ async function copy(text) {
   font-size: 12px;
   line-height: 1.45;
   font-family: 'SF Mono', ui-monospace, 'JetBrains Mono', monospace;
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  background: color-mix(in srgb, currentcolor 6%, transparent);
   border-radius: 6px;
   padding: 8px 10px;
   margin: 2px 0 8px;
