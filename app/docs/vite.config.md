@@ -5,10 +5,28 @@ resource: app/vite.config.js
 docgen:
   crc: 9e864560
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
-  tier: local-min
-  score: 50
-  issues: no-overview,short-behavior,anchor-miss:https://vite.dev/config/,best-of-2:retry-lost
+  score: 100
+  issues: judge:inaccurate:0.98
+  judgeModel: openai-codex/gpt-5.4-mini
 ---
+
+## Огляд
+
+Зчитує конфігурацію Vite для середовища розробки Tauri. Налаштовує автоматичний імпорт компонентів Vue та обробку шаблонів, трансформуючи URL активів. Інтегрує стилі Quasar з визначених у `src/quasar-variables.sass` змінних. Оптимізує конфігурацію для Tauri: підтримує відображення помилок Rust, встановлює фіксований порт 1420 для сервера та керує Hot Module Replacement (HMR) залежно від `TAURI_DEV_HOST`, ігноруючи моніторинг файлів у `src-tauri`. Детальніше про конфігурацію Vite можна знайти за посиланням <https://vite.dev/config/>.
+
+## Поведінка
+
+Зчитує конфігурацію Vite для застосування у середовищі розробки Tauri.
+
+1. Ініціалізує плагіни для автоматичного імпорту компонентів Vue.
+2. Налаштовує Vue Macros для обробки шаблонів з трансформацією URL активів.
+3. Конфігурує плагін Quasar з використанням змінних SCSS, визначених у `src/quasar-variables.sass`.
+4. Встановлює опції Vite, оптимізовані для Tauri:
+    а. Визначає, що екран не буде очищатися під час розробки, щоб бачити помилки Rust.
+    б. Конфігурує сервер для використання фіксованого порту 1420, вимагаючи його доступності, та налаштовує Hot Module Replacement (HMR) залежно від змінної середовища `TAURI_DEV_HOST`.
+    в. Інструктує Vite ігнорувати моніторинг файлів у каталозі `src-tauri`.
+
+Для детальної інформації про конфігурацію Vite зверніться до <https://vite.dev/config/>.
 
 ## Гарантії поведінки
 
