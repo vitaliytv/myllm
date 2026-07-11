@@ -65,7 +65,8 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-      - uses: Swatinem/rust-cache@v2
+      # прийнятий ризик: кеш у release-збірці вимагає rust/toolchain_cache-канон
+      - uses: Swatinem/rust-cache@v2 # zizmor: ignore[cache-poisoning]
         with:
           workspaces: app/src-tauri
 
@@ -125,7 +126,8 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-      - uses: Swatinem/rust-cache@v2
+      # прийнятий ризик: кеш у release-збірці вимагає rust/toolchain_cache-канон
+      - uses: Swatinem/rust-cache@v2 # zizmor: ignore[cache-poisoning]
 
       - name: Build universal binary
         run: |

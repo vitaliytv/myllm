@@ -62,7 +62,7 @@ import { isLocalModel } from '../services/chains.js'
 // якщо воно доступне — trace-запис сам може бути стиснутий клієнтом.
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  step: { type: Object, default: null },
+  step: { type: Object, default: null }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -77,7 +77,11 @@ const title = computed(() => (props.step ? `Крок ${props.step.chainStep} · 
  */
 function textOf(content) {
   if (typeof content === 'string') return content
-  if (Array.isArray(content)) return content.filter(p => p?.type === 'text').map(p => p.text).join('')
+  if (Array.isArray(content))
+    return content
+      .filter(p => p?.type === 'text')
+      .map(p => p.text)
+      .join('')
   return content === null || content === undefined ? '' : String(content)
 }
 

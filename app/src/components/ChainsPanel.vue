@@ -9,7 +9,7 @@
             :options="[
               { label: '24h', value: 'day' },
               { label: '7d', value: 'week' },
-              { label: 'все', value: 'all' },
+              { label: 'все', value: 'all' }
             ]"
             dense
             no-caps
@@ -56,11 +56,13 @@
         </q-markup-table>
 
         <template v-if="aggregates.alwaysEscalatedUnits.length">
-          <div class="text-caption text-weight-medium q-mt-sm">
-            Кандидати на T0-скрипти (завжди ескалюють у cloud):
-          </div>
+          <div class="text-caption text-weight-medium q-mt-sm">Кандидати на T0-скрипти (завжди ескалюють у cloud):</div>
           <div class="q-gutter-xs q-mt-xs">
-            <q-badge v-for="u in aggregates.alwaysEscalatedUnits.slice(0, 10)" :key="u.kind + u.unit" outline color="orange">
+            <q-badge
+              v-for="u in aggregates.alwaysEscalatedUnits.slice(0, 10)"
+              :key="u.kind + u.unit"
+              outline
+              color="orange">
               [{{ u.kind }}] {{ u.unit }} · {{ u.cloudTokens }} tok
             </q-badge>
           </div>
@@ -70,8 +72,8 @@
 
     <q-card v-if="!chains.chains.value.length" flat bordered>
       <q-card-section class="text-grey-7">
-        Ланцюжків ще нема. Вони зʼявляються, коли клієнти @7n/llm-lib (lint --fix, docgen, 7n-test)
-        пишуть у <code>~/.n-cursor/llm-trace.jsonl</code>.
+        Ланцюжків ще нема. Вони зʼявляються, коли клієнти @7n/llm-lib (lint --fix, docgen, 7n-test) пишуть у
+        <code>~/.n-cursor/llm-trace.jsonl</code>.
         <span v-if="chains.error.value" class="text-negative">{{ chains.error.value }}</span>
       </q-card-section>
     </q-card>
@@ -89,7 +91,11 @@
               :color="c.extra.resolvedBy === 't0' ? 'positive' : 'primary'"
               outline
               class="q-ml-sm"
-              :title="c.extra.resolvedBy === 't0' ? 'закрито детермінованим T0-патерном, без LLM' : 'закрито цим rung-ом ladder-а'">
+              :title="
+                c.extra.resolvedBy === 't0'
+                  ? 'закрито детермінованим T0-патерном, без LLM'
+                  : 'закрито цим rung-ом ladder-а'
+              ">
               ✓ {{ chainResolutionLabel(c.extra) }}
             </q-badge>
             <q-badge v-if="hasAnalysis(c.chainId)" color="teal" outline class="q-ml-sm">має аналіз</q-badge>
@@ -104,13 +110,18 @@
           <q-item-label v-if="chainProblemLabel(c.extra)" caption class="ellipsis" :title="chainProblemLabel(c.extra)">
             🎯 {{ chainProblemLabel(c.extra) }}
           </q-item-label>
-          <q-item-label v-if="chainTouchedFilesLabel(c.extra)" caption class="ellipsis" :title="chainTouchedFilesLabel(c.extra)">
+          <q-item-label
+            v-if="chainTouchedFilesLabel(c.extra)"
+            caption
+            class="ellipsis"
+            :title="chainTouchedFilesLabel(c.extra)">
             📝 {{ chainTouchedFilesLabel(c.extra) }}
           </q-item-label>
 
           <q-item-label v-if="expanded[c.chainId]" caption>
             <div v-for="a in c.extra?.t0Applied ?? []" :key="a.id" class="q-mt-xs">
-              ⚙️ T0 <code>{{ a.id }}</code><span v-if="a.message"> — {{ a.message }}</span>
+              ⚙️ T0 <code>{{ a.id }}</code
+              ><span v-if="a.message"> — {{ a.message }}</span>
             </div>
             <q-markup-table dense flat class="q-mt-sm">
               <thead>
@@ -185,7 +196,7 @@ const PERIOD_MS = { day: 24 * 3600 * 1000, week: 7 * 24 * 3600 * 1000 }
 
 const aggregates = computed(() =>
   chainAggregates(chains.chains.value, {
-    sinceMs: period.value === 'all' ? undefined : Date.now() - PERIOD_MS[period.value],
+    sinceMs: period.value === 'all' ? undefined : Date.now() - PERIOD_MS[period.value]
   })
 )
 
@@ -268,10 +279,9 @@ async function reload() {
 function clearTrace() {
   Dialog.create({
     title: 'Очистити ланцюжки',
-    message:
-      'Trace-файл ланцюжків і body-capture буде очищено безповоротно. Збережені аналізи залишаться.',
+    message: 'Trace-файл ланцюжків і body-capture буде очищено безповоротно. Збережені аналізи залишаться.',
     cancel: true,
-    persistent: true,
+    persistent: true
   }).onOk(async () => {
     await chains.clear()
     expanded.value = {}
