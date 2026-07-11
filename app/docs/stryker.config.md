@@ -5,10 +5,18 @@ resource: app/stryker.config.mjs
 docgen:
   crc: ce2e032f
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
-  tier: local-min
-  score: 45
-  issues: no-overview,short-behavior,anchor-miss:incremental.json,anchor-miss:mutation.json,best-of-2:retry-lost
+  score: 100
+  issues: judge:inaccurate:0.98
+  judgeModel: openai-codex/gpt-5.4-mini
 ---
+
+## Огляд
+
+Проводить тестування та мутаційний аналіз коду за допомогою Vitest. Визначає області вихідного коду, які можуть бути змінені, спираючись на конфігурації `incremental.json` та `mutation.json`. Запускає процеси мутації для перевірки стійкості системи.
+
+## Поведінка
+
+Перевіряє тестовий набір, використовуючи Vitest як рушій. Визначає, які частини коду підлягають мутації, виключаючи тести та допоміжні файли. Запускає процеси мутації послідовно. Збирає результати мутацій у форматі JSON та текстовий звіт. Зберігає дані для наступних запусків у файлі `incremental.json`. Використовує конфігурацію Vue-макросів для ігнорування певних елементів.
 
 ## Гарантії поведінки
 
