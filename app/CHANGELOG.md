@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.2] - 2026-07-11
+
+### Fixed
+
+- release-інфраструктура: .gitkeep у app/.changes (glob тригера завжди матчиться), канонічний concurrency у changelog-release, bunx для lint ga, zizmor-приглушення rust-cache у release.yml
+
 ## [2.1.1] - 2026-07-10
 
 ### Changed

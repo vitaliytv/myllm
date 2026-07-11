@@ -97,7 +97,7 @@ export function chainResolutionLabel(extra) {
 }
 
 /**
- * Підпис змінених файлів з `extra.touchedFiles` (cwd-relative, producer капить
+ * Підпис змінених файлів з `extra.touchedFiles` (cwd-relative, producer обрізає
  * список; `touchedTotal` несе повну кількість — хвіст показуємо як `+N`).
  * @param {object|null|undefined} extra extra фінального chain-запису
  * @returns {string} 'a.js, b.js (+3)' або '' якщо змін не зафіксовано
@@ -144,7 +144,18 @@ export function chainAggregates(chains, { sinceMs } = {}) {
   for (const c of filtered) {
     let k = perKindMap.get(c.chainKind)
     if (!k) {
-      k = { kind: c.chainKind, chains: 0, success: 0, partial: 0, fail: 0, escalated: 0, cloudCalls: 0, localCalls: 0, cloudTokens: 0, wallMs: 0 }
+      k = {
+        kind: c.chainKind,
+        chains: 0,
+        success: 0,
+        partial: 0,
+        fail: 0,
+        escalated: 0,
+        cloudCalls: 0,
+        localCalls: 0,
+        cloudTokens: 0,
+        wallMs: 0
+      }
       perKindMap.set(c.chainKind, k)
     }
     k.chains++

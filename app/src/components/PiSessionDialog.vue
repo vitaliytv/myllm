@@ -5,8 +5,7 @@
     :model-value="modelValue"
     :title="selectedModel ? `pi — ${selectedModel.label}` : 'pi'"
     icon="sym_o_terminal"
-    :width="560"
-  >
+    :width="560">
     <div class="pi-session-scroll q-gutter-sm">
       <div class="text-caption text-grey-7">
         <q-icon name="sym_o_folder" size="14px" class="q-mr-xs" />{{ entry?.client?.cwd }}
@@ -35,9 +34,7 @@
           <div v-if="turn.role === 'user'" class="chat-user">{{ turn.text }}</div>
           <pre v-else class="chat-agent" :class="{ 'text-negative': turn.isError }">{{ turn.text }}</pre>
         </template>
-        <div v-if="running" class="chat-thinking">
-          <q-spinner-dots size="18px" /> pi думає…
-        </div>
+        <div v-if="running" class="chat-thinking"><q-spinner-dots size="18px" /> pi думає…</div>
       </div>
 
       <q-input
@@ -89,7 +86,7 @@ const props = defineProps({
   // Готовий стартовий промпт (chain-аналіз) — перекриває buildAnalysisPrompt(entry).
   initialPrompt: { type: String, default: '' },
   // Показує кнопку «Зберегти аналіз» (емітить 'save' з останньою відповіддю агента).
-  saveable: { type: Boolean, default: false },
+  saveable: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'save'])
 
@@ -138,7 +135,7 @@ async function send() {
       cwd: props.entry.client.cwd,
       model: selectedModel.value.model,
       sessionId: sessionId.value,
-      prompt: text,
+      prompt: text
     })
     turns.value.push({ role: 'agent', text: output })
   } catch (error) {

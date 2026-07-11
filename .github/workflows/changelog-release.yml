@@ -12,12 +12,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/.changes/**'
 
   workflow_dispatch: {}
 
 concurrency:
-  group: changelog-release
-  cancel-in-progress: false
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
   release:

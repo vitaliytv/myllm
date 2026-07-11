@@ -10,20 +10,21 @@ import {
   parseChainStep
 } from './chains.js'
 
-const chain = (over = {}) => parseChainRecord({
-  ts: '2026-07-05T10:00:00.000Z',
-  chainId: 'c1',
-  chainKind: 'fix-concern',
-  unit: 'text/cspell',
-  outcome: 'success',
-  steps: 2,
-  localCalls: 1,
-  cloudCalls: 1,
-  escalated: true,
-  usageCloud: { totalTokens: 100 },
-  wallMs: 500,
-  ...over
-})
+const chain = (over = {}) =>
+  parseChainRecord({
+    ts: '2026-07-05T10:00:00.000Z',
+    chainId: 'c1',
+    chainKind: 'fix-concern',
+    unit: 'text/cspell',
+    outcome: 'success',
+    steps: 2,
+    localCalls: 1,
+    cloudCalls: 1,
+    escalated: true,
+    usageCloud: { totalTokens: 100 },
+    wallMs: 500,
+    ...over
+  })
 
 const mk = (id, unit, over = {}) => chain({ chainId: id, unit, ...over })
 
@@ -32,7 +33,11 @@ describe('parseChainRecord/parseChainStep', () => {
     expect(chain().chainKind).toBe('fix-concern')
     const minimal = parseChainRecord({})
     expect(minimal).toMatchObject({ chainId: '', outcome: 'fail', steps: 0, escalated: false, extra: {} })
-    expect(parseChainStep({ chainStep: 3, model: 'omlx/x' })).toMatchObject({ chainStep: 3, model: 'omlx/x', error: null })
+    expect(parseChainStep({ chainStep: 3, model: 'omlx/x' })).toMatchObject({
+      chainStep: 3,
+      model: 'omlx/x',
+      error: null
+    })
     expect(parseChainStep(null).chainStep).toBe(0)
   })
 
@@ -113,7 +118,10 @@ describe('joinStepsWithBodies', () => {
   })
 
   it('порожній bodies — усі body:null, не падає', () => {
-    expect(joinStepsWithBodies(steps, [])).toEqual([{ ...steps[0], body: null }, { ...steps[1], body: null }])
+    expect(joinStepsWithBodies(steps, [])).toEqual([
+      { ...steps[0], body: null },
+      { ...steps[1], body: null }
+    ])
     expect(joinStepsWithBodies(steps)[0].body).toBeNull()
   })
 })
@@ -122,7 +130,14 @@ describe('chainAggregates', () => {
   it('perKind з escalation-rate і totals', () => {
     const { perKind, totals } = chainAggregates([
       chain(),
-      chain({ chainId: 'c2', outcome: 'fail', escalated: false, localCalls: 2, cloudCalls: 0, usageCloud: { totalTokens: 0 } }),
+      chain({
+        chainId: 'c2',
+        outcome: 'fail',
+        escalated: false,
+        localCalls: 2,
+        cloudCalls: 0,
+        usageCloud: { totalTokens: 0 }
+      }),
       chain({ chainId: 'c3', chainKind: 'doc-generate', unit: 'a.mjs', outcome: 'partial' })
     ])
     const fix = perKind.find(k => k.kind === 'fix-concern')
@@ -132,8 +147,12 @@ describe('chainAggregates', () => {
 
   it('alwaysEscalatedUnits: поріг ≥3, 100% escalated/cloudOnly, сорт за cloudTokens', () => {
     const { alwaysEscalatedUnits } = chainAggregates([
-      mk('a1', 'ga/pins'), mk('a2', 'ga/pins'), mk('a3', 'ga/pins'),
-      mk('b1', 'js/x'), mk('b2', 'js/x'), mk('b3', 'js/x', { escalated: false, cloudCalls: 0, localCalls: 1, usageCloud: { totalTokens: 0 } }),
+      mk('a1', 'ga/pins'),
+      mk('a2', 'ga/pins'),
+      mk('a3', 'ga/pins'),
+      mk('b1', 'js/x'),
+      mk('b2', 'js/x'),
+      mk('b3', 'js/x', { escalated: false, cloudCalls: 0, localCalls: 1, usageCloud: { totalTokens: 0 } }),
       mk('d1', 'npm/pub', { escalated: false, localCalls: 0, usageCloud: { totalTokens: 900 } }),
       mk('d2', 'npm/pub', { escalated: false, localCalls: 0, usageCloud: { totalTokens: 900 } }),
       mk('d3', 'npm/pub', { escalated: false, localCalls: 0, usageCloud: { totalTokens: 900 } })

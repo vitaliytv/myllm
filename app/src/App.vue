@@ -90,7 +90,7 @@ async function saveChainAnalysis(markdown) {
     cwd: chain.cwd,
     targetRepo: inferTargetRepo(chain.chainKind),
     model: chain.finalModel,
-    markdown,
+    markdown
   })
   Notify.create({ message: `Аналіз збережено: ${path}`, color: 'positive', timeout: 2500 })
   chainsPanel.value?.reload?.()
