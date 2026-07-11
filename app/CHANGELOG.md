@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.4] - 2026-07-11
+
+### Changed
+
+- chore: застосувати lint --full правки (cspell, ChainsPanel/ChainStepDialog, canon-sync)
+
 ## [2.1.3] - 2026-07-11
 
 ### Changed
