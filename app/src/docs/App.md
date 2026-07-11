@@ -1,11 +1,11 @@
 ---
+type: Vue Component
+title: App.vue
+resource: app/src/App.vue
 docgen:
-  source: app/src/App.vue
-  crc: 614b708a
+  crc: 7ecc8a6d
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
-
-# App.vue
 
 Компонент є головним інтерфейсом застосунку, що відображає основні елементи навігації та інтегрує модулі для роботи з агентом, аудиту та аналізом ланцюжків. Він ініціалізує версію застосунку та завантажує моделі для агента.
 

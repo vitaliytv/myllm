@@ -1,11 +1,11 @@
 ---
+type: Vue Component
+title: PiSessionDialog.vue
+resource: app/src/components/PiSessionDialog.vue
 docgen:
-  source: app/src/components/PiSessionDialog.vue
-  crc: 63b3cc4c
+  crc: 8fc57440
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
-
-# PiSessionDialog.vue
 
 Компонент відображає діалогове вікно для взаємодії з AI-агентом `pi`. Він керує сесією чату, дозволяє вибирати моделі та відображає історію обміну повідомленнями.
 
