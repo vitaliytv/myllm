@@ -3,7 +3,7 @@ type: Vue Component
 title: ChainStepDialog.vue
 resource: app/src/components/ChainStepDialog.vue
 docgen:
-  crc: 1734f562
+  crc: 7a490031
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
 

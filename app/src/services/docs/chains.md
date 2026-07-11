@@ -3,7 +3,7 @@ type: JS Module
 title: chains.js
 resource: app/src/services/chains.js
 docgen:
-  crc: 69d59980
+  crc: e209a1e3
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   issues: best-of-2:retry-won,judge:inaccurate:0.99

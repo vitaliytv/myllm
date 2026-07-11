@@ -3,7 +3,7 @@ type: Vue Component
 title: ChainsPanel.vue
 resource: app/src/components/ChainsPanel.vue
 docgen:
-  crc: d4b757e3
+  crc: e6740901
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
 
