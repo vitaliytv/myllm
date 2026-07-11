@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.3] - 2026-07-11
+
+### Changed
+
+- Оновлено файлову документацію (docgen) після додавання chainProblemLabel/chainResolutionLabel/chainTouchedFilesLabel у chains.js
+
 ## [2.1.2] - 2026-07-11
 
 ### Fixed
