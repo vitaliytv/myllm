@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@7n/tauri-components": "^0.8.0",
+    "@nitra/cursor": "^14.18.1",
     "@quasar/extras": "^1.18.0",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-http": "^2.5.0",
