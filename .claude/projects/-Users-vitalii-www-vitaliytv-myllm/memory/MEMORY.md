@@ -1,0 +1,2 @@
+- [Release-flow через change-файли](release-flow-change-files.md) — version/CHANGELOG тільки CI; `<ws>/.changes/YYMMDD-HHMM.md` вручну
+- [CI Lint JS = oxlint](cursor-repo-lint-oxlint.md) — локальний eslint недостатній; `bunx oxlint` перед пушем, exit-код не ховати за pipe
