@@ -21,8 +21,11 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@7n/rules": "^1.28.1",
+    "@7n/rules-ci-github": "^1.7.1",
+    "@7n/rules-lang-js": "^0.4.1",
+    "@7n/rules-lang-rust": "^0.5.1",
     "@nitra/cspell-dict": "^2.1.0",
-    "@nitra/cursor": "^14.21.1",
     "@nitra/eslint-config": "^3.10.0",
     "@nitra/stylelint-config": "^1.4.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",

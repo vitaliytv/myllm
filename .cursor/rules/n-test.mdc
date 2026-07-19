@@ -1,7 +1,7 @@
 ---
 description: JS-тести (*.test.mjs) живуть у tests/. Правило `test` керує stryker.config.mjs + vitest.config.mjs (якщо js enabled) і .cargo/mutants.toml (якщо rust enabled).
 version: '2.8'
-globs: "**/{.n-cursor.json,package.json,Cargo.toml,stryker.config.mjs,vitest.config.mjs,vitest.config.js,.cargo/mutants.toml},**/*.test.mjs"
+globs: "**/{.n-rules.json,package.json,Cargo.toml,stryker.config.mjs,vitest.config.mjs,vitest.config.js,.cargo/mutants.toml},**/*.test.mjs"
 alwaysApply: false
 ---
 
@@ -9,32 +9,34 @@ alwaysApply: false
 
 ## Покриття + мутаційне тестування
 
-Канонічна команда — `n-cursor coverage`: збирає метрики покриття (`vitest run --coverage`, `cargo llvm-cov` тощо) і мутаційного тестування (Stryker з vitest-runner + `coverageAnalysis: 'perTest'`, `cargo-mutants`) з усіх активних провайдерів у `.n-cursor.json#rules` і пише `COVERAGE.md` у корінь проєкту.
+Канонічна команда — `npx @7n/test coverage` (пакет `@7n/test`, **не** `@7n/rules` — цей пакет лише постачає providers, оркестратор живе окремо): збирає метрики покриття (`vitest run --coverage`, `cargo llvm-cov` тощо) і мутаційного тестування (Stryker з vitest-runner + `coverageAnalysis: 'perTest'`, `cargo-mutants`) з усіх активних провайдерів у `.n-rules.json#rules` і пише `COVERAGE.md` у корінь проєкту.
 
-**Scoped-режим `--changed`:** `n-cursor coverage --changed` звужує scope до файлів, змінених від git merge-base поточної гілки з `main` або `origin/main`. У changed-режимі `COVERAGE.md` **не** перезаписується і LLM-класифікація не запускається.
+**Scoped-режим `--changed`:** `npx @7n/test coverage --changed` звужує scope до файлів, змінених від git merge-base поточної гілки з `main` або `origin/main`. У changed-режимі `COVERAGE.md` **не** перезаписується і LLM-класифікація не запускається.
 
-Провайдери живуть у `npm/rules/<rule>/coverage/coverage.mjs`. Оркестратор — у `npm/rules/test/coverage/coverage.mjs`.
+**`--fix`:** `npx @7n/test coverage --fix` — після збору метрик агент виправляє survived-мутанти й повторює coverage.
 
-У `package.json` (корінь) має бути `scripts.coverage` із викликом `n-cursor coverage`.
+Провайдери живуть у `npm/rules/<rule>/coverage/coverage.mjs` (цей пакет, `@7n/rules`). Оркестратор — у `@7n/test` (`npm/src/coverage/coverage.mjs`), який резолвить providers з `node_modules/@7n/rules/rules`. Проєкт-споживач має мати `@7n/test` як devDependency, аби `npx @7n/test coverage` резолвився без мережевого fetch щоразу.
+
+У `package.json` (корінь) має бути `scripts.coverage` із викликом `npx @7n/test coverage`.
 
 ### Multi-workspace iteration
 
-У monorepo `n-cursor coverage` ітерує усі workspaces з власним `package.json` і агрегує метрики lcov + Stryker у єдиний `JS`-рядок `COVERAGE.md`. Workspace без тестів пропускається без помилки.
+У monorepo `@7n/test coverage` ітерує усі workspaces з власним `package.json` і агрегує метрики lcov + Stryker у єдиний `JS`-рядок `COVERAGE.md`. Workspace без тестів пропускається без помилки.
 
 - `package.json`:
 
 ```json
 {
   "scripts": {
-    "coverage": ["n-cursor coverage"],
-    "test": ["vitest"]
+    "coverage": ["@7n/test coverage"],
+    "test": ["vitest", "--bun"]
   }
 }
 ```
 
 ## Налаштування mutation-testing для Rust: `.cargo/mutants.toml`
 
-Якщо у `.n-cursor.json#rules` присутнє правило `rust` — правило `test` створює `.cargo/mutants.toml` у каталозі **кожного** Cargo.toml-маніфесту: кореневий `Cargo.toml`, `<workspace>/src-tauri/Cargo.toml` (Tauri-патерн) і `<workspace>/Cargo.toml` (flat workspace).
+Якщо у `.n-rules.json#rules` присутнє правило `rust` — правило `test` створює `.cargo/mutants.toml` у каталозі **кожного** Cargo.toml-маніфесту: кореневий `Cargo.toml`, `<workspace>/src-tauri/Cargo.toml` (Tauri-патерн) і `<workspace>/Cargo.toml` (flat workspace).
 
 Канон cargo-mutants config: [mutants.toml.baseline](./data/cargo_mutants_config/mutants.toml.baseline)
 
@@ -49,7 +51,7 @@ alwaysApply: false
 - не виключає platform glue, generated wrappers або binary entrypoints;
 - framework-specific tuning (`--lib`/`--tests`, `exclude_globs` для app-shell і platform bridge файлів) належить відповідним правилам (`tauri`, `capacitor` тощо).
 
-Якщо інше правило спеціалізує mutation-behavior — воно зобов'язане **доповнювати** існуючий `.cargo/mutants.toml` без дублювання (додавати лише відсутні ключі) і **не перетирати** ручні налаштування. Послідовний запуск `npx @nitra/cursor fix test` після `fix tauri` не має скидати tauri-tuning, і навпаки — повторний `fix tauri` не дублює секції.
+Якщо інше правило спеціалізує mutation-behavior — воно зобов'язане **доповнювати** існуючий `.cargo/mutants.toml` без дублювання (додавати лише відсутні ключі) і **не перетирати** ручні налаштування. Послідовний запуск `npx @7n/rules fix test` після `fix tauri` не має скидати tauri-tuning, і навпаки — повторний `fix tauri` не дублює секції.
 
 ## Розміщення тестових файлів у каталозі `tests/`
 
@@ -98,11 +100,21 @@ rules/foo/policy/package_json/
 
 Recursive globs ловлять файли всередині `tests/` так само, як ловили б їх біля джерела.
 
-`npx @nitra/cursor fix test` (concern `location`) проходить деревом пакета й перевіряє: **кожен `*.test.mjs` файл лежить усередині каталогу з ім'ям `tests`** (точне співпадіння басенейму батьківської директорії). Файли поза цим каталогом репортуються з порадою куди їх перенести.
+`npx @7n/rules fix test` (concern `location`) проходить деревом пакета й перевіряє: **кожен `*.test.mjs` файл лежить усередині каталогу з ім'ям `tests`** (точне співпадіння басенейму батьківської директорії). Файли поза цим каталогом репортуються з порадою куди їх перенести.
 
 `*_test.rego` перевіркою **не охоплюються** — вони не переміщуються.
 
-Пропускаються: `node_modules`, `.git`, `dist`, `build`, `.venv`, `venv`, шляхи з `.n-cursor.json:ignore`.
+Пропускаються: `node_modules`, `.git`, `dist`, `build`, `.venv`, `venv`, шляхи з `.n-rules.json:ignore`.
+
+## Заборона `import ... from 'bun:test'`
+
+Тести проєкту виконуються через **vitest** (`vitest run`, а також `@7n/test coverage`, який ганяє `vitest run --coverage` + Stryker з `vitest-runner`) — `bun:test` там не резолвиться взагалі: `Cannot find package 'bun:test'`. Файл з таким імпортом ламає весь coverage/mutation-прогін workspace-а (реальні помилки не маскуються — одна `bun:test`-згадка валить весь `@7n/test coverage`).
+
+- **Заборонено** `import { ... } from 'bun:test'` у будь-якому `*.test.{mjs,js}`.
+- **Auto-fix (T0):** якщо всі імпортовані специфікатори мають прямий 1:1 еквівалент у vitest — `describe`, `test`, `it`, `expect`, `beforeEach`, `beforeAll`, `afterEach`, `afterAll` — джерело переписується на `'vitest'` без зміни специфікаторів чи call-sites.
+- **Без auto-fix:** якщо import містить `mock`, `spyOn`, `jest` чи інший специфікатор без прямого еквіваленту — T0 файл не чіпає. У vitest ці API живуть під `vi.*` namespace (`vi.fn()`, `vi.spyOn(...)`), тож самого перезапису джерела недостатньо — потрібне ручне (або LLM-ladder) виправлення call-sites. Violation залишається до фіксу.
+
+**Перевірка** (`rules/test/no-bun-test-import/main.mjs`): сканує `**/*.test.{mjs,js}`, шукає `import { ... } from 'bun:test'` (можливо багаторядковий), парсить специфікатори і визначає `fixable`.
 
 ## Заборона ручного store/restore `console` у тестах
 
@@ -165,16 +177,18 @@ Rego-пакет: `test.package_json`
 
 | Поле | Має містити |
 |---|---|
-| `scripts.coverage` | `n-cursor coverage` |
-| `scripts.test` | `vitest` |
+| `scripts.coverage` | `@7n/test coverage` |
+| `scripts.test` | `vitest` і `--bun` (напр. `"bun run --bun vitest run"`) |
 
-Substring-семантика: команди-обгортки (наприклад `bun run pre-coverage && n-cursor coverage`) дозволені — головне, щоб потрібний рядок був присутній.
+Substring-семантика: команди-обгортки (наприклад `bun run pre-coverage && npx @7n/test coverage`, `bun run pre-test && bun run --bun vitest run`) дозволені — головне, щоб потрібні рядки були присутні.
+
+**Чому `--bun` для `scripts.test`:** без Bun-рушія (`bun run vitest` без `--bun`, чи vitest під Node) `import { SQL } from 'bun'` та інші Bun-нативні built-in модулі не резолвуються у forked test-процесах — консьюмери змушені тримати exclude-списки для тестів, що їх торкаються. Під `bun run --bun vitest run` forked pool-процеси успадковують Bun-рушій і резолюція працює без жодних exclude.
 
 Канон підтягується через `--data`: [package.json.contains.json](./template/package.json.contains.json)
 
 ## Sandbox-aware тести (Stryker)
 
-Stryker за замовчуванням копіює репо у sandbox-каталог (`reports/stryker/.tmp/sandbox-XXX/`), щоб AST-патчити мутантів без зачеплення робочого дерева. У sandbox **немає `.git/`**, і будь-який тест, що звертається до **реального** git-дерева через `import.meta.url + N≥3 рівнів вгору** (типу`const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..', '..')`) фактично адресує sandbox-корінь, а не справжній репо. Це ламає`git rev-parse`/`git ls-files`/перевірки`.n-cursor.json`/CHANGELOG-співставлення — Stryker dry-run падає, мутаційний прогон не стартує,`mutation.json` лишається stale.
+Stryker за замовчуванням копіює репо у sandbox-каталог (`reports/stryker/.tmp/sandbox-XXX/`), щоб AST-патчити мутантів без зачеплення робочого дерева. У sandbox **немає `.git/`**, і будь-який тест, що звертається до **реального** git-дерева через `import.meta.url + N≥3 рівнів вгору** (типу`const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..', '..')`) фактично адресує sandbox-корінь, а не справжній репо. Це ламає`git rev-parse`/`git ls-files`/перевірки`.n-rules.json`/CHANGELOG-співставлення — Stryker dry-run падає, мутаційний прогон не стартує,`mutation.json` лишається stale.
 
 **Канон**: тест не повинен залежати від реального git-дерева через `import.meta.url + N≥3 рівнів вгору`. Якщо тест перевіряє git-логіку — ізолюй **повністю**:
 
@@ -203,7 +217,7 @@ test.skipIf(env.STRYKER_MUTATOR_WORKER)('узгоджені з поточним 
 
 ## Налаштування mutation-testing: Stryker + Vitest baseline
 
-Якщо у `.n-cursor.json#rules` присутнє правило `js` — правило `test` створює canonical baseline `stryker.config.mjs` + `vitest.config.mjs` у **кожному** JS-root проєкту: у кожному workspace з власним `package.json` (або в корені для single-package). У monorepo з `workspaces: ['app', 'scripts']` отримаєте `app/stryker.config.mjs` + `app/vitest.config.mjs` і `scripts/stryker.config.mjs` + `scripts/vitest.config.mjs`.
+Якщо у `.n-rules.json#rules` присутнє правило `js` — правило `test` створює canonical baseline `stryker.config.mjs` + `vitest.config.mjs` у **кожному** JS-root проєкту: у кожному workspace з власним `package.json` (або в корені для single-package). У monorepo з `workspaces: ['app', 'scripts']` отримаєте `app/stryker.config.mjs` + `app/vitest.config.mjs` і `scripts/stryker.config.mjs` + `scripts/vitest.config.mjs`.
 
 Якщо у JS-root уже лежить legacy `vitest.config.js` — він лишається валідним, новий `.mjs` поряд не створюється, а `vitest.configFile` у скопійованому `stryker.config.mjs` приводиться до фактичного імені.
 
@@ -228,6 +242,136 @@ JS-root без `.vue` отримує дефолтний baseline без `plugins
 
 Це запобігає випадковому коміту build-артефактів.
 
+## Vitest API — обов'язкові конвенції (для генерації тестів LLM)
+
+Цей розділ адресований генераторам тестів (LLM, local і cloud). Порушення будь-якого пункту — рівнозначне синтаксичній помилці: тест не запуститься або дасть хибно-позитивний результат.
+
+Канон: тести виконуються через **vitest** під Bun-рушієм (`bun run --bun vitest run`, див. `test.package_json`), а не через нативний `bun test` — `import ... from 'bun:test'` заборонено (`no-bun-test-import`). API нижче — саме vitest, не bun:test і не jest.
+
+### 1. Модульна система — лише ESM
+
+`*.test.mjs` завжди ESM; `require()` у `.mjs` кидає `ERR_REQUIRE_ESM`.
+
+✓ `import { foo } from '../foo.mjs'`
+✗ `const { foo } = require('../foo.mjs')`
+
+### 2. `vi.*` замість `jest.*`
+
+Проект використовує Vitest, не Jest. Будь-який `jest.fn()`, `jest.mock()`, `jest.spyOn()` — помилка компіляції або runtime-помилка.
+
+✓ `vi.fn()`, `vi.mock(...)`, `vi.spyOn(...)`
+✗ `jest.fn()`, `jest.mock(...)`, `jest.spyOn(...)`
+
+### 3. Кастинг mock-функцій — лише `vi.mocked()`
+
+✓ `vi.mocked(fetch).mockResolvedValue(res)`
+✗ `(fetch as vi.Mock).mockResolvedValue(res)` — TypeScript у `.mjs` не компілюється
+
+### 4. `toBe` vs `toEqual`
+
+`toBe` (Object.is) — для примітивів (`string`, `number`, `boolean`, `null`, `undefined`).
+`toEqual` (deep equality) — для об'єктів і масивів.
+
+`toBe({…})` для об'єктів **завжди false** (різні посилання) — використовуй `toEqual`.
+
+✓ `expect(count).toBe(3)`
+✓ `expect(result).toEqual({ ok: true })`
+✗ `expect(result).toBe({ ok: true })`
+
+**Перевірка** (`rules/test/vitest-api-conventions/main.mjs`): сканує `**/*.test.{mjs,js}`, шукає `expect(...).toBe(...)` з об'єктним/масивним літералом як першим аргументом — таке порівняння завжди `false` через reference equality, незалежно від вмісту.
+
+### 5. Моки для Date / часу
+
+`vi.spyOn(Date).mockReturnValue(…)` **не працює** з `new Date()` (TypeError: Date is not a constructor при `new`).
+
+✓
+
+```js
+vi.useFakeTimers()
+vi.setSystemTime(new Date('2024-01-01'))
+afterEach(() => vi.useRealTimers())
+```
+
+✗ `vi.spyOn(global, 'Date').mockReturnValue(new Date('2024-01-01'))`
+
+### 6. Моки для `process.env`
+
+`process.env.X = '…'` забруднює глобальний стан; `vi.spyOn(process, 'env')` не дає ізоляції між тестами.
+
+✓
+
+```js
+vi.stubEnv('KEY', 'val')
+afterEach(() => vi.unstubAllEnvs())
+```
+
+✗ `process.env.KEY = 'val'` (без відновлення)
+
+### 7. Модулі з top-level side-effect
+
+Якщо source-модуль читає `process.env` або викликає функцію на рівні модуля — env/моки мають бути встановлені **до** `import`; сам import — dynamic.
+
+✓
+
+```js
+vi.stubEnv('KEY', 'val')
+const { fn } = await import('../index.js')
+```
+
+✗ статичний `import { fn } from '../index.js'` коли source викликає функцію на рівні модуля
+
+### 8. Cleanup у `afterEach` — обов'язковий
+
+Після кожного тест-файлу з mock-ами — відновлення стану:
+
+```js
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  vi.useRealTimers() // лише якщо vi.useFakeTimers() використовувався
+})
+```
+
+Пропуск `afterEach` — витік стану між тестами в одному файлі.
+
+### 9. FormData у Node.js
+
+`formData.get('field')` повертає `Blob | string | null`. Для file-полів — `toBeInstanceOf(Blob)`, НЕ `toBe('filename')`.
+
+✓ `expect(formData.get('file')).toBeInstanceOf(Blob)`
+✗ `expect(formData.get('file')).toBe('photo.jpg')`
+
+---
+
+### Канонічний шаблон тест-файлу
+
+```js
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { myFn } from '../my-module.mjs'
+
+vi.mock('../dep.mjs', () => ({ dep: vi.fn() }))
+
+beforeEach(() => {
+  vi.stubEnv('API_KEY', 'test-key')
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2024-06-01'))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  vi.useRealTimers()
+})
+
+describe('myFn', () => {
+  it('повертає очікуване значення', async () => {
+    const result = await myFn()
+    expect(result).toEqual({ ok: true })
+  })
+})
+```
+
 ## Vitest: `pool: 'forks'` як захист від race у `process.cwd()`
 
 **`vitest-config-pool-forks`** (`rules/test/js/vitest-config-pool-forks.mjs`) — substring-перевірка `pool: 'forks'` у `vitest.config.mjs` (або legacy `vitest.config.js`; `.mjs` пріоритетніший).
@@ -242,7 +386,7 @@ JS-root без `.vue` отримує дефолтний baseline без `plugins
 - `coverage.provider: 'v8'` з lcov+text-summary репортами
 - `include: ['**/*.test.{js,mjs}', 'tests/**/*.test.{js,mjs}']` — підхоплює тести у `tests/`-піддиректоріях і top-level integration suites у `<root>/tests/`
 
-У `package.json#scripts` має бути `"test": "vitest run"` (substring `vitest`; допустимо `vitest run` та інші локальні розширення) та опційно `"test:watch": "vitest"`.
+У `package.json#scripts` має бути `"test": "bun run --bun vitest run"` (substring `vitest` + `--bun`; допустимі локальні розширення-обгортки) та опційно `"test:watch": "vitest"`.
 
 **Frontend-варіант (Vue/Vite + happy-dom):**
 

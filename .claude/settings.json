@@ -6,7 +6,9 @@
       "Bash(bun test *)",
       "Bash(bunx *)",
       "Bash(npx --no @nitra/cursor *)",
-      "Bash(npx @nitra/cursor *)"
+      "Bash(npx @nitra/cursor *)",
+      "Bash(npx --no @7n/rules *)",
+      "Bash(npx @7n/rules *)"
     ]
   },
   "hooks": {
@@ -16,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --no @nitra/cursor hook --post-tool-use",
+            "command": "npx --no @7n/rules hook --post-tool-use",
             "timeout": 300
           }
         ]
@@ -42,6 +44,18 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/normalize-decisions.sh\"",
             "async": true,
             "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v rtk >/dev/null 2>&1 && exec rtk hook claude; exit 0",
+            "timeout": 30
           }
         ]
       }

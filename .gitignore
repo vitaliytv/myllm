@@ -64,3 +64,5 @@ reports/stryker/incremental.json
 # Cargo workspace build output (тепер у корені, бо src-tauri — член воркспейсу)
 /target/
 
+# @7n/rules (adr) — локальні артефакти Stop-hook, не коміти
+.claude/scheduled_tasks.lock
