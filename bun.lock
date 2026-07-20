@@ -5,7 +5,7 @@
     "": {
       "name": "myllm",
       "devDependencies": {
-        "@7n/rules": "^1.28.1",
+        "@7n/rules": "^1.32.1",
         "@7n/rules-ci-github": "^1.7.1",
         "@7n/rules-lang-js": "^0.4.1",
         "@7n/rules-lang-rust": "^0.5.1",
@@ -59,7 +59,7 @@
 
     "@7n/mt-linux-x64": ["@7n/mt-linux-x64@0.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-c4b1c435vfGZcRKkLnWcoKs8O6KTATFFx6gPGnid4ee+JDqzyhtxb5kzxYkcTQySO8iBHPAtUMEOBCHDrF1UjQ=="],
 
-    "@7n/rules": ["@7n/rules@1.28.1", "", { "dependencies": { "@7n/llm-lib": "^2.8.2", "@7n/mt": "^0.5.1", "@zed-industries/agent-client-protocol": "^0.4.5", "ajv": "^8.20.0", "cli-progress": "^3.12.0", "github-actionlint": "^1.7.12", "globby": "^16.0.0", "ignore": "^7.0.5", "markdownlint-cli2": "^0.22.1", "oxc-parser": "^0.137.0", "picomatch": "^4.0.4", "smol-toml": "^1.7.0", "v8r": "^6.1.0", "yaml": "^2.9.0", "zod": "^4.4.3" }, "optionalDependencies": { "@agentclientprotocol/claude-agent-acp": "^0.59.0", "@earendil-works/pi-ai": "0.80.10", "@earendil-works/pi-coding-agent": "0.80.10" }, "bin": { "n-rules": "bin/n-rules.js", "n-cursor": "bin/n-rules.js" } }, "sha512-bRDbRKzHr+4kAKtRXwIqD22/zZqdHhBz/JIyE5FmvOaxtvw+6JbaVK6OVCj5pqkXSfr6yIf+SdnAJfxJoTPDQg=="],
+    "@7n/rules": ["@7n/rules@1.32.2", "", { "dependencies": { "@7n/llm-lib": "^2.8.2", "@7n/mt": "^0.5.1", "@zed-industries/agent-client-protocol": "^0.4.5", "ajv": "^8.20.0", "cli-progress": "^3.12.0", "github-actionlint": "^1.7.12", "globby": "^16.0.0", "ignore": "^7.0.5", "markdownlint-cli2": "^0.22.1", "oxc-parser": "^0.137.0", "picomatch": "^4.0.4", "smol-toml": "^1.7.0", "v8r": "^6.1.0", "yaml": "^2.9.0", "zod": "^4.4.3" }, "optionalDependencies": { "@agentclientprotocol/claude-agent-acp": "^0.59.0", "@earendil-works/pi-ai": "0.80.10", "@earendil-works/pi-coding-agent": "0.80.10" }, "bin": { "n-rules": "bin/n-rules.js", "n-cursor": "bin/n-rules.js" } }, "sha512-NuesK2LmONiy7hNrMDmUObNdUG9/OkWSTrLXMGMr9DYw5Gq93OBpw7qAFUd3kshjaNBzB256CTAlQZsvlgkrgw=="],
 
     "@7n/rules-ci-github": ["@7n/rules-ci-github@1.7.1", "", { "dependencies": { "yaml": "^2.9.0" }, "peerDependencies": { "@7n/rules": ">=1.2.0" } }, "sha512-ea07bUaC7X4hrD/g3t7F+jWLSVyBZdSvs0nDSt04AMRtfcGvCbTY66luG6ZzHBtIDIunBSECnMw/hvaP2IstCg=="],
 
