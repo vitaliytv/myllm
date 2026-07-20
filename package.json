@@ -21,7 +21,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@7n/rules": "^1.28.1",
+    "@7n/rules": "^1.32.1",
     "@7n/rules-ci-github": "^1.7.1",
     "@7n/rules-lang-js": "^0.4.1",
     "@7n/rules-lang-rust": "^0.5.1",
