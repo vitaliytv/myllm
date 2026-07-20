@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.5] - 2026-07-20
+
+### Changed
+
+- chore(deps): bump @7n/tauri-components ^0.8.0 → ^0.12.0; міграція useAgent → useAcpAgent (ACP)
+
 ## [2.1.4] - 2026-07-11
 
 ### Changed
