@@ -3,7 +3,7 @@ type: JS Module
 title: vite.config.js
 resource: app/vite.config.js
 docgen:
-  crc: 9e864560
+  crc: 9a3ef02c
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
   score: 100
   issues: judge:inaccurate:0.98
