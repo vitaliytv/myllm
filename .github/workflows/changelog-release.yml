@@ -50,7 +50,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
       - name: Run n-cursor release
-        run: npx @nitra/cursor release
+        run: npx n-cursor release
 
       - name: Detect produced release
         id: rel

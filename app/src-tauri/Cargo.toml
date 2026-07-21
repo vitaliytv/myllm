@@ -22,7 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 # Shared agent journal + omlx config commands (plugin:agent|*) — same crate the
 # task/mlmail/myshare apps use, so the journal/omlx backend isn't copied per app.
-tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components" }
+tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components", rev = "12371a0546faeeb6eec71bd7f9a06bc9eb6f0178" }
 # @7n/tauri-components' useAgent() робить свій chat-виклик до omlx через
 # tauriFetch (JS) — єдина причина цього плагіна лишається чинною й після
 # винесення проксі (той код ходив напряму через reqwest, а не через нього).

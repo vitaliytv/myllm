@@ -19,9 +19,9 @@
     },
     "app": {
       "name": "app",
-      "version": "2.1.4",
+      "version": "2.1.5",
       "dependencies": {
-        "@7n/tauri-components": "^0.12.0",
+        "@7n/tauri-components": "^0.13.9",
         "@quasar/extras": "^2.0.2",
         "@tauri-apps/api": "^2.11.1",
         "@tauri-apps/plugin-http": "^2.5.9",
@@ -67,7 +67,7 @@
 
     "@7n/rules-lang-rust": ["@7n/rules-lang-rust@0.6.0", "", { "dependencies": { "smol-toml": "^1.7.0" }, "peerDependencies": { "@7n/rules": ">=1.15.0" } }, "sha512-ITzgfHIoK+bBeLtGreYLN+7eDX+jKyAGD3JWo+8SVrUGZM+Dx5oee8F6c0Lsl2VhmWe9ncYTTDTWjdSLkzWNtQ=="],
 
-    "@7n/tauri-components": ["@7n/tauri-components@0.12.0", "", { "dependencies": { "marked": "^18.0.5" }, "peerDependencies": { "@tauri-apps/api": "^2.0.0", "@tauri-apps/plugin-http": "^2.0.0", "@tauri-apps/plugin-process": "^2.0.0", "@tauri-apps/plugin-updater": "^2.0.0", "@vue/test-utils": "^2.0.0", "quasar": "^2.0.0", "vue": "^3.0.0" }, "optionalPeers": ["@tauri-apps/api", "@tauri-apps/plugin-http", "quasar"] }, "sha512-2q2Xu/fF+2/rBmAl1GFD5R6OvFHkxT9dRORPV93h29k2E9hyReJ3XpaR3roSd+EqBydHDDJU5pC026RxQLOBrA=="],
+    "@7n/tauri-components": ["@7n/tauri-components@0.13.9", "", { "dependencies": { "marked": "^18.0.5" }, "peerDependencies": { "@tauri-apps/api": "^2.0.0", "@tauri-apps/plugin-http": "^2.0.0", "@tauri-apps/plugin-process": "^2.0.0", "@tauri-apps/plugin-updater": "^2.0.0", "@vue/test-utils": "^2.0.0", "quasar": "^2.0.0", "vue": "^3.0.0" }, "optionalPeers": ["@tauri-apps/api", "@tauri-apps/plugin-http", "quasar"] }, "sha512-yo2tlJvigUZFq8zVAyh/f2tK/kn/mudDAvcXzJwi2bwzr0h4bvgPJxSZjs7PKcwqfKjcRUbe4ov2JpQiZD67Pw=="],
 
     "@agentclientprotocol/claude-agent-acp": ["@agentclientprotocol/claude-agent-acp@0.59.0", "", { "dependencies": { "@agentclientprotocol/sdk": "1.2.1", "@anthropic-ai/claude-agent-sdk": "0.3.207", "zod": "^3.25.0 || ^4.0.0" }, "bin": { "claude-agent-acp": "dist/index.js" } }, "sha512-GejLH5qxsI5IoSDfhyOVDEsRNxqi6y0Rcj5FstVeOwMACSht/bUXII0HILbzOQNoA5qlyZle3FRvf+CAjD7Rpg=="],
 
