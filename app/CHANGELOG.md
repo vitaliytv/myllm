@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0] - 2026-08-21
+
+### Fixed
+
+- chains: вкладка читає ОБИДВА стори trace — legacy `~/.n-cursor/llm-trace.jsonl` (JS-клієнт) і денні файли `~/.n-llm-lib/llm-trace-YYYY-MM-DD.jsonl` (Rust-крейт `n7n-trace`, env `N_LLM_TRACE_DIR`), зливаючи їх в один хронологічний потік. Доти знали лише перший шлях, тож жоден рядок Rust-конвеєрів (`n7n-llm-lib`/`n7n-harness`) у «Ланцюжки» не потрапляв — включно з фінальними `kind:"chain"`. Спільний байтовий кеп витрачається від новіших джерел до старіших (під кепом виживають свіжі записи); «Очистити» трункейтить усі джерела, не лише legacy; явний `N_LLM_TRACE_PATH`/`N_CURSOR_TRACE_PATH` лишається перевизначенням на один файл
+- chains: кроки Rust-писемника більше не показують порожні колонки — `parseChainStep` збирає вкладений `usage` з пласких `promptTokens`/`completionTokens` крейта `n7n-trace` (`cachedTokens` у суму не входить — він уже всередині `promptTokens`) і читає `failCause` як `error`; `parseChainRecord` підхоплює новий `unknownCalls` (виклики з нерезолвленою моделлю, окремо від `cloudCalls`)
+
 ## [2.1.6] - 2026-07-21
 
 ### Changed
