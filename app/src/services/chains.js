@@ -35,6 +35,10 @@ export function parseChainRecord(raw) {
     steps: raw?.steps ?? 0,
     localCalls: raw?.localCalls ?? 0,
     cloudCalls: raw?.cloudCalls ?? 0,
+    // Виклики, чию модель писемник не зміг зарезолвити. Свідомо ОКРЕМИЙ
+    // лічильник, не частина cloudCalls: мовчазний запис невідомого в хмарний
+    // бакет спотворив би cost-аналітику. Старі записи поля не мають → 0.
+    unknownCalls: raw?.unknownCalls ?? 0,
     escalated: raw?.escalated ?? false,
     finalModel: raw?.finalModel ?? null,
     errors: raw?.errors ?? 0,
@@ -43,6 +47,32 @@ export function parseChainRecord(raw) {
     usageCloud: raw?.usageCloud ?? null,
     extra: raw?.extra ?? {}
   }
+}
+
+/**
+ * Usage кроку — два писемники звітують його ПО-РІЗНОМУ, і view-модель має
+ * віддавати UI одну форму незалежно від того, хто писав рядок.
+ *
+ * JS-клієнт `@7n/llm-lib` клав вкладений `usage: { input, output, totalTokens }`.
+ * Rust-крейт `n7n-trace` пише ПЛАСКІ `promptTokens`/`cachedTokens`/
+ * `completionTokens` — його per-rung формат (§3.8 спеки) вкладеного `usage`
+ * не має взагалі. Доти колонка токенів показувала «—» для КОЖНОГО кроку,
+ * написаного Rust-конвеєрами (`n7n-llm-lib`/`n7n-harness`).
+ *
+ * `cachedTokens` у суму НЕ входить: він уже всередині `promptTokens` — це
+ * його розклад (скільки входу впало в KV-кеш), а не друга доданка. Додати
+ * його означало б порахувати кешований вхід двічі.
+ * @param {unknown} raw сирий запис trace
+ * @returns {{input: number, output: number, totalTokens: number}|null} usage або null, якщо метрик немає
+ */
+function stepUsage(raw) {
+  if (raw?.usage) return raw.usage
+  const input = raw?.promptTokens
+  const output = raw?.completionTokens
+  if (typeof input !== 'number' && typeof output !== 'number') return null
+  const inNum = input ?? 0
+  const outNum = output ?? 0
+  return { input: inNum, output: outNum, totalTokens: inNum + outNum }
 }
 
 /**
@@ -57,10 +87,13 @@ export function parseChainStep(raw) {
     kind: raw?.kind ?? '',
     model: raw?.model ?? null,
     chainStep: raw?.chainStep ?? 0,
-    usage: raw?.usage ?? null,
+    usage: stepUsage(raw),
     stopReason: raw?.stopReason ?? null,
     promptHash: raw?.promptHash ?? null,
-    error: raw?.error ?? null,
+    // JS-клієнт клав `error`, Rust-крейт `n7n-trace` пише `failCause`
+    // (`TraceCommon::fail_cause`) — та сама розбіжність писемників, що в
+    // `stepUsage`.
+    error: raw?.error ?? raw?.failCause ?? null,
     // Trace-запис несе повний (можливо стиснутий клієнтом) промпт/відповідь —
     // primary джерело для перегляду «що питали / що відповіла модель» у UI,
     // доки body-capture (opt-in, нестиснуте) недоступне для цього кроку.

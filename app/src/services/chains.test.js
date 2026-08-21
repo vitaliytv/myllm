@@ -41,6 +41,54 @@ describe('parseChainRecord/parseChainStep', () => {
     expect(parseChainStep(null).chainStep).toBe(0)
   })
 
+  it('крок Rust-писемника: пласкі promptTokens/completionTokens → вкладений usage', () => {
+    // Формат `n7n-trace` (§3.8): вкладеного `usage` у per-rung рядку немає.
+    const step = parseChainStep({
+      kind: 'fix',
+      chainStep: 2,
+      model: 'local-openai/gemma',
+      promptTokens: 1200,
+      cachedTokens: 1100,
+      completionTokens: 64
+    })
+    expect(step.usage).toEqual({ input: 1200, output: 64, totalTokens: 1264 })
+  })
+
+  it('cachedTokens не подвоює вхід — він уже всередині promptTokens', () => {
+    const step = parseChainStep({ promptTokens: 1000, cachedTokens: 900, completionTokens: 10 })
+    expect(step.usage.totalTokens).toBe(1010)
+  })
+
+  it('вкладений usage JS-писемника має пріоритет і лишається як є', () => {
+    const step = parseChainStep({
+      usage: { input: 1, output: 2, totalTokens: 3 },
+      promptTokens: 999,
+      completionTokens: 999
+    })
+    expect(step.usage).toEqual({ input: 1, output: 2, totalTokens: 3 })
+  })
+
+  it('часткові метрики рахуються, повна відсутність дає null', () => {
+    expect(parseChainStep({ completionTokens: 7 }).usage).toEqual({
+      input: 0,
+      output: 7,
+      totalTokens: 7
+    })
+    // Нуль метрик — саме null, а не {0,0,0}: «метрик немає» ≠ «безкоштовно».
+    expect(parseChainStep({ kind: 'oneShot' }).usage).toBeNull()
+  })
+
+  it('failCause Rust-писемника читається як error', () => {
+    expect(parseChainStep({ failCause: 'EmptyCompletion' }).error).toBe('EmptyCompletion')
+    // `error` JS-писемника лишається пріоритетним.
+    expect(parseChainStep({ error: 'бум', failCause: 'Timeout' }).error).toBe('бум')
+  })
+
+  it('unknownCalls читається, старі записи без поля дають 0', () => {
+    expect(parseChainRecord({ unknownCalls: 3 }).unknownCalls).toBe(3)
+    expect(parseChainRecord({}).unknownCalls).toBe(0)
+  })
+
   it('зберігає messages/content для перегляду промпту/відповіді кроку', () => {
     const step = parseChainStep({
       chainStep: 1,
