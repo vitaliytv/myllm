@@ -142,13 +142,25 @@ rebuild (лінковка, bundling, іноді webview) замість секу
 
 ```
 my-tauri-app/
-├── src-tauri/           ← app-shell: Tauri runtime, window/AppHandle, НЕ містить LLM-залежностей
-│   └── Cargo.toml       ← [workspace] members = [".", "../agent-core"]
-└── agent-core/          ← agent/LLM-логіка: prompt building, tool dispatch, provider abstraction
-    ├── Cargo.toml       ← без залежності на tauri
+├── Cargo.toml            ← workspace root (virtual, без [package]): [workspace] members = ["src-tauri", "agent-core"]
+├── src-tauri/            ← app-shell: Tauri runtime, window/AppHandle, НЕ містить LLM-залежностей
+│   └── Cargo.toml        ← [package], без [workspace] — сам по собі НЕ workspace root
+└── agent-core/           ← agent/LLM-логіка: prompt building, tool dispatch, provider abstraction
+    ├── Cargo.toml        ← без залежності на tauri
     └── tests/
         └── fake_provider.rs   ← FakeLlmProvider / MockLlmClient — без мережі
 ```
+
+`[workspace] members = [".", "../agent-core"]` **всередині** `src-tauri/Cargo.toml` — невалідний
+Cargo layout: `../agent-core` лежить поза деревом workspace root (`src-tauri/`), і Cargo відмовляє
+з `workspace member '.../agent-core/Cargo.toml' is not hierarchically below the workspace root`.
+Тому `[workspace]` живе у product-root `Cargo.toml`, що лежить НАД обома крейтами (канон
+`rust/workspace_root.mdc` — один кореневий Cargo workspace на репозиторій).
+
+**Наслідок:** `target/` компілюється у корінь цього workspace (`my-tauri-app/target/`), а не в
+`src-tauri/target/` — це впливає на очікуваний запис у `.gitignore` (`tauri/gitignore_target`) і на
+шлях у `workspaces:`-полі `Swatinem/rust-cache` GitHub Action (action бере шлях буквально як
+`<path>/target`, тож там має стояти корінь цього workspace, не `src-tauri`).
 
 Концерн `tauri/core_test_isolation.mjs` (read-only detector, `structural`, авто-фікс ризикований)
 для кожного `src-tauri/Cargo.toml` перевіряє:
@@ -156,9 +168,11 @@ my-tauri-app/
 1. **LLM-залежність не в app-shell.** Якщо сам `src-tauri/Cargo.toml` має залежність на відомий
    LLM SDK (напр. `async-openai`, `anthropic`, `ollama-rs`, `rig-core`, ...) — фейл: винеси
    agent-логіку в окремий crate.
-2. **Окремий crate не тягне tauri.** Якщо у `[workspace] members` є crate з LLM-залежністю, і
-   цей crate сам залежить від `tauri`/`tauri-*` — фейл: `cargo test -p` цього крейту все одно
-   перезбирає Tauri runtime.
+2. **Окремий crate не тягне tauri.** `[workspace] members` резолвиться або з самого
+   `src-tauri/Cargo.toml` (standalone-патерн), або — коли там `[workspace]` немає — з
+   найближчого предка-workspace root (product-root `Cargo.toml` над `src-tauri/`). Якщо серед
+   members є crate з LLM-залежністю, і цей crate сам залежить від `tauri`/`tauri-*` — фейл:
+   `cargo test -p` цього крейту все одно перезбирає Tauri runtime.
 3. **Є fake-провайдер.** Якщо такий crate є і не залежить від tauri, але ніде в його дереві
    (`**/*.rs`) немає маркера `Fake*Llm`/`Mock*Provider`/`Stub*Client` — фейл: інтеграційні тести
    на prompt/tool ітерації або мовчки пропускають LLM-логіку, або б'ють по реальному провайдеру.
@@ -168,6 +182,50 @@ LLM-залежністю — Tauri-проєкти без LLM/agent-логіки 
 
 **Не автофіксується:** виділення crate, перенесення коду і написання fake-провайдера потребують
 людського розсуду — детектор лише репортує з посиланням на це правило.
+
+## `.gitignore`: ignore build-артефактів фактичного Cargo workspace root
+
+Кожен `<ws>/src-tauri/` (Rust-крейт Tauri) компілюється в `target/` свого фактичного
+Cargo workspace root — а не завжди в `<ws>/src-tauri/target/`. Якщо над `src-tauri/` є
+предок-workspace (канон `rust/workspace_root.mdc` — один кореневий Cargo workspace на
+репозиторій, наприклад `<ws>/Cargo.toml` чи кореневий `Cargo.toml` монорепо), Cargo кладе
+`target/` саме туди. Корінний `.gitignore` монорепо повинен містити точний ignore-запис
+для кожного такого крейту, обчислений від цього фактичного workspace root:
+
+```gitignore
+# Tauri — Rust build artifacts (tauri.mdc)
+<workspace-root>/target/
+```
+
+де `<workspace-root>` — найближчий предок `src-tauri/` з `[workspace]`, чиї `members`
+покривають цей крейт (якщо це корінь монорепо — запис голий `target/`); якщо предка-workspace
+немає — крейт сам собі workspace root, і запис лишається `<ws>/src-tauri/target/`.
+
+### Чому точний шлях, а не голий `target/`
+
+Реальний прецедент: у `nitra/task` коміт `3cb0df3` помилково "виправив" коректний запис
+`owner/target/` назад на `owner/src-tauri/target/` — автор вважав це друкарською помилкою,
+не врахувавши, що `owner/Cargo.toml` є Cargo workspace root для `owner/src-tauri` і тому
+`target/` справді компілюється в `owner/target/`, а не в `owner/src-tauri/target/`. Коміт
+`ac3451e` це скасував. Тобто `<ws>/src-tauri/target/` — не універсальний дефолт, а лише
+окремий випадок (crate без workspace root над собою); перевірка мусить рахувати очікуваний
+шлях від реального workspace root, а не від фіксованого суфікса.
+
+Тому перевірка звіряє **точний рядок** обчисленого запису для кожного знайденого `src-tauri/`,
+а не факт наявності підрядка `target/` десь у файлі — голий `target/` чи запис не того рівня
+не закривають violation. Сторонній/мертвий каталог `target/` на диску (за старим, вже
+невірним шляхом) також не задовольняє перевірку — вона звіряє лише вміст `.gitignore`.
+
+### Область дії
+
+- Обхід усіх `<ws>/src-tauri/` — спільний з `tauri/cargo_mutants_config` (`findSrcTauriDirs`, без дублювання обходу монорепо).
+- Очікуваний шлях — `findAncestorWorkspaceRoot` (`scripts/utils/cargo-workspace.mjs`, спільно з `rust/workspace_root`).
+- Ціль фіксу — **один** корінний `.gitignore` монорепо (не по workspace).
+- Детектор лише **додає** відсутнє: сторонні/застарілі ignore-записи не видаляються — вони можуть бути навмисними чи потребувати ручного review.
+
+### Автофікс (T0)
+
+Дописує відсутні записи в кінець секції `# Tauri — Rust build artifacts (tauri.mdc)`: якщо секція вже є — поруч із наявними entries (мінімальний diff, без переписування файла); якщо нема — створює новий блок у кінці `.gitignore`. Ідемпотентно: повторний прогін на вже виправленому файлі нічого не змінює.
 
 ## Системні залежності Tauri (Linux) у `lint-rust.yml`
 
