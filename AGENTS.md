@@ -11,6 +11,7 @@ The primary development rules are stored in the Cursor rules directory:
 - .cursor/rules/n-adr.mdc
 - .cursor/rules/n-bun.mdc
 - .cursor/rules/n-changelog.mdc
+- .cursor/rules/n-ci_artifact.mdc
 - .cursor/rules/n-ci4.mdc
 - .cursor/rules/n-doc-files.mdc
 - .cursor/rules/n-ga.mdc
@@ -62,6 +63,10 @@ Generated from the root `package.json` on each `npx @7n/rules` sync. Prefer `bun
 ## Instructions for all agents
 
 Before making changes, read the relevant rule files for the area you are working on.
+
+## RTK
+
+Якщо `rtk` встановлено, використовуй підтримувані rtk wrappers, щоб скорочувати вивід для LLM: `rtk git status`, `rtk rg pattern`, `rtk vitest run`, `rtk npm run build`. Для команд без wrapper-а виконуй оригінальну команду.
 
 ## Інваріант після змін
 

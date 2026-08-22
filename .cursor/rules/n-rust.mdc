@@ -2,10 +2,29 @@
 description: Перевірка Rust коду
 globs: "**/{Cargo.toml,Cargo.lock,rustfmt.toml,clippy.toml,.vscode/extensions.json,package.json},**/*.rs"
 alwaysApply: false
-version: '1.4'
+version: '1.5'
 ---
 
-Правило забезпечує форматування (rustfmt), лінт (clippy), CI workflow та покриття для Rust-проєктів.
+Правило забезпечує форматування (rustfmt), лінт (clippy), CI workflow та покриття для Rust-проєктів. Doc-коментарі: файл із pub-елементами має //!-header і ///-опис над кожним top-level pub-елементом. Якщо вони змістовні, doc-files дослівно збирає «Огляд» і «Публічний API» без LLM; T0 підвищує суміжні //-коментарі, решту дописує LLM-ladder.
+
+## Налаштування mutation-testing для Rust: `.cargo/mutants.toml`
+
+Правило `rust` створює `.cargo/mutants.toml` у каталозі **кожного** Cargo.toml-маніфесту: кореневий `Cargo.toml`, `<workspace>/src-tauri/Cargo.toml` (Tauri-патерн) і `<workspace>/Cargo.toml` (flat workspace).
+
+Канон cargo-mutants config: [mutants.toml.baseline](./data/cargo_mutants_config/mutants.toml.baseline)
+
+**Customization** (mutate patterns, exclude rules, timeout) — відповідальність проєкту-споживача; концерн лише забезпечує наявність файлу як стартового baseline в кожному з виявлених workspace-каталогів.
+
+### Універсальний baseline і framework-specific tuning
+
+Концерн відповідає лише за **універсальний baseline** mutation-testing:
+
+- створює `.cargo/mutants.toml` для Rust crates (порожній, з коментарем);
+- не робить припущень про framework/app shell;
+- не виключає platform glue, generated wrappers або binary entrypoints;
+- framework-specific tuning (`--lib`/`--tests`, `exclude_globs` для app-shell і platform bridge файлів) належить відповідним правилам (`tauri`, `capacitor` тощо).
+
+Якщо інше правило спеціалізує mutation-behavior — воно зобов'язане **доповнювати** існуючий `.cargo/mutants.toml` без дублювання (додавати лише відсутні ключі) і **не перетирати** ручні налаштування. Послідовний запуск `npx @7n/rules fix rust` після `fix tauri` не має скидати tauri-tuning, і навпаки — повторний `fix tauri` не дублює секції.
 
 ## Лінт Rust: rustfmt + clippy + cargo-deny
 
@@ -22,7 +41,28 @@ version: '1.4'
 
 ### Канон CI workflow `.github/workflows/lint-rust.yml`
 
-Канонічний workflow, drift-safe перевірка (`rust.lint_rust_yml`) і вимога `Swatinem/rust-cache@v2` — `npm/rules/rust/lint_rust_yml/lint_rust_yml.mdc`. Тут лише сам лінт-скрипт; CI-канон workflow **не дублюється**.
+Канонічний workflow (GitHub Actions) і canonical lint-степ (Azure Pipelines) — `ci.artifact@1` contributions цього пакета: `slots/ci/rust-github-lint.json` (+ шаблон `slots/ci/github/lint-rust.yml.snippet.yml`) і `slots/ci/rust-azure-lint.json` (+ `slots/ci/azure/lint-rust.snippet.yml`); матеріалізує їх generic consumer `@7n/rules-ci-github`/`@7n/rules-ci-azure`. Вимога `Swatinem/rust-cache@v2` для решти workflow-файлів (coverage, release) — `rust/toolchain_cache` у `@7n/rules-ci-github`. Тут лише сам лінт-скрипт; CI-канон workflow **не дублюється**.
+
+## Doc-коментарі — джерело дослівної документації
+
+Конвеєр doc-files (гібрид ADR 260719-2155) копіює rustdoc **дослівно**: `///`
+над `pub`-елементом стає рядком «Публічного API» без перефразування LLM,
+`//!`-коментар файлу — основою «Огляду».
+
+Рекомендовані вимоги для `.rs`-файлів із top-level `pub`-елементами (тести —
+`tests/`, `*_test.rs` — поза вимогою; сканування зупиняється на `#[cfg(test)]`):
+
+- **`//!`-header файлу** — намір файлу, ЩО і НАВІЩО (1-3 речення).
+- **`///` над кожним top-level `pub`-елементом** (fn/struct/enum/trait/mod/
+  const/static/type/union) — один змістовний рядок.
+
+Авто-виправлення:
+
+- **T0**: суцільний `//`-блок впритул над елементом → `///`; провідний
+  `//`-блок файлу → `//!` — текст автора зберігається дослівно.
+- Елементи зовсім без коментаря — дописує LLM-ladder.
+
+Перевірка: `rules/rust/doc_comments/main.mjs`.
 
 ## Rego-gate: `cargo`, `rustfmt`, `clippy` заборонені у `package.json`
 
@@ -47,23 +87,47 @@ Rego-пакет: `rust.vscode_extensions`
 
 Канонічний template: [extensions.json.snippet.json](./template/extensions.json.snippet.json)
 
-## Перевірка `.github/workflows/lint-rust.yml`
+## Один кореневий Cargo workspace на репозиторій
 
-Rego-пакет: `rust.lint_rust_yml`
+Дзеркалить JS-канон монорепо (кореневий `package.json` + `workspaces` + єдиний lockfile,
+`npm/rules/dev-dep`, `npm/rules/n-npm-module`) на бік Rust: у репозиторії, де є хоча б один
+Rust-пакет (`Cargo.toml` з `[package]`), має бути **рівно один** кореневий Cargo workspace.
 
-Цільовий файл: `.github/workflows/lint-rust.yml`
+### Інваріант
 
-Перевіряє:
+- Кореневий `Cargo.toml` — обов'язковий і має бути workspace root: або має `[workspace]`
+  (virtual — без `[package]`, або разом з `[package]`), або він — **єдиний** `[package]`-маніфест
+  у репозиторії (тоді Cargo неявно робить пакет власним workspace root).
+- Кожен інший знайдений package-маніфест повинен бути покритий `[workspace].members`
+  кореневого `Cargo.toml` (glob `*` підтримується мінімально: `["a", "b/*"]`) — або явно
+  виключений через `workspace.exclude`.
+- Вкладений `[workspace]` у не-кореневому `Cargo.toml` — завжди порушення (nested workspace).
+- `[profile.*]` у не-кореневому `Cargo.toml` — завжди порушення: Cargo мовчки ігнорує чи
+  видає попередження на profile-секції поза кореневим workspace-маніфестом.
 
-- кожен `uses`-крок з канону присутній у workflow (підмножина): `actions/checkout@v6`, `dtolnay/rust-toolchain@stable`, `Swatinem/rust-cache@v2`
-- кожен `run`-крок з канону присутній як підрядок серед усіх `run`-кроків: `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`
-- канон завантажується через `--data` з template-сніпету — drift-safe: зміна шаблону автоматично рухає перевірку
+### Чому це важливо
 
-Канонічний template: [lint-rust.yml.snippet.yml](./template/lint-rust.yml.snippet.yml)
+`tauri/gitignore_target` і `tauri/core_test_isolation` (npm/rules/tauri/) залежать від
+цього інваріанту: перший обчислює очікуваний `target/`-запис у `.gitignore` від фактичного
+workspace root крейту, другий — резолвить sibling-crate по `[workspace].members`. Без єдиного
+кореневого workspace обидва концерни не мають однозначної точки відліку.
 
-Вимога `Swatinem/rust-cache@v2` після `dtolnay/rust-toolchain@…` тут перевіряється лише для цього конкретного файлу (як частина канону). Та сама вимога для **будь-якого** іншого workflow (coverage, release/build через `tauri-apps/tauri-action`, кастомні) — concern `rust/toolchain_cache`.
+### Обхід
 
-Tauri-проєкти (`src-tauri/Cargo.toml`) додатково потребують у цьому файлі apt-кроку системних залежностей Linux перед Clippy — concern `tauri/linux_deps` (tauri.mdc), не частина канону тут.
+T0-детектор (без spawn `cargo`) — читає лише FS + TOML (`smol-toml`). Обходить дерево
+репозиторію, пропускаючи `target/`, `node_modules/`, `.git/`, `.next/`, `.turbo/`, `.venv/`,
+`venv/`, `.claude/`, `vendor/`.
+
+### Не автофіксується (fixability: structural)
+
+Перенесення `[workspace]`/`[profile.*]`, видалення дублікатних `Cargo.lock` — структурні
+зміни, що потребують людського розсуду. Ручний рецепт:
+
+1. Створи/підтверди кореневий `[workspace]` з `resolver = "2"` і `members`, що покривають усі
+   package-маніфести (або `exclude` для навмисних винятків).
+2. Перенеси всі `[profile.*]`-блоки з не-кореневих `Cargo.toml` у кореневий.
+3. Видали вкладені `[workspace]`-маніфести та їхні `Cargo.lock` — у репозиторії має лишитись
+   один кореневий workspace і один кореневий `Cargo.lock`.
 
 ## Rust-cache після rust-toolchain — у будь-якому workflow
 
